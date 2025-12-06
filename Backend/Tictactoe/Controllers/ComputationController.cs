@@ -8,6 +8,7 @@ namespace Tictactoe.Controllers;
 public class ComputationController : ControllerBase
 {
     private readonly ILogger<ComputationController> _logger;
+    private static readonly Random _rng = new Random();
     private readonly IComputationService _computationService;
     public ComputationController(ILogger<ComputationController> logger, IComputationService computationService)
     {
@@ -20,5 +21,12 @@ public class ComputationController : ControllerBase
     {
         var (nextMove, score) = _computationService.Handle(request.PlayerMoves, request.CpuMoves);
         return new ComputeResponse { NextMove = nextMove, Win = score };
+    }
+
+    [HttpGet("Test")]
+    public ComputeResponse Test()
+    {
+        var randomValue = _rng.NextDouble(); // 0.0 - 1.0
+        return new ComputeResponse { NextMove = 5, Win = 2 };
     }
 }

@@ -1,0 +1,78 @@
+version: "3.9"
+
+services:
+  # client:
+  #   container_name: react-client
+  #   build:
+  #     context: ./Frontend
+  #     dockerfile: dev.Dockerfile
+  #   ports:
+  #     - "5173:5173"
+  #   volumes:
+  #     - ./client:/app
+  #     - /app/node_modules
+  #   environment:
+  #     - API_URL=http://api:5000
+  #   command: ["npm", "run", "dev"]
+  #   depends_on:
+  #     - api
+
+  # api:
+  #   container_name: dotnet-api
+  #   build:
+  #     context: ./Backend
+  #     dockerfile: dev.Dockerfile
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - ./Backend:/app
+  #     - /app/bin
+  #     - /app/obj
+  #   environment:
+  #     - ASPNETCORE_URLS=http://+:5000
+  #     - ConnectionStrings__Mongo=mongodb://mongo:27017/mydb
+
+    #command: ["dotnet", "watch", "run"]
+    #command: ["pwsh", "-File", "./Backend/watch.ps1"]
+    # depends_on:
+    #   - mongo
+
+  # mongo:
+  #   container_name: mongo-db
+  #   image: mongo:7
+  #   restart: always
+  #   ports:
+  #     - "27017:27017"
+  #   environment:
+  #     MONGO_INITDB_DATABASE: mydb
+  #   volumes:
+  #     - mongo_data:/data/db
+
+  redis:
+    image: redis:7
+    container_name: ttt-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+
+  redisinsight:
+    image: redislabs/redisinsight
+    container_name: ttt-redisinsight
+    ports:
+      - "8002:8001"
+      - "5540:5540"
+
+  mongo:
+    image: mongo:7
+    container_name: ttt-mongo
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: tictactoe
+
+volumes:
+  mongo_data:

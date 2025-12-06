@@ -1,52 +1,129 @@
-
 using Tictactoe.Services;
+using Tictactoe.Configurations;
+using Tictactoe.Hubs;
+using CSharp.Mongo.Migration.Core;
+using CSharp.Mongo.Migration.Core.Locators;
+using System.Reflection;
+using Semver;
+namespace Tictactoe;
 
-namespace Tictactoe
+public class Program
 {
-    public class Program
+    public static void Main(string[] args)
     {
-        public static void Main(string[] args)
+        var migrate = args.Contains("--migrate");
+        var revert = args.Contains("--revert");
+        var revertVersion = revert == false? null: args.SkipWhile(arg => arg != "--revert")?.Skip(1)?.FirstOrDefault();
+
+        if (revert && revertVersion == null)
         {
-            var builder = WebApplication.CreateBuilder(args);
+            throw new InvalidOperationException("Revert version is expected to be provided if revert command is specified");
+        }
 
-            // Add services to the container.
+        var builder = WebApplication.CreateBuilder(args);
+        builder.Services.AddOptions(builder.Configuration);
+        var (redisOptions, mongoDbOptions, corsPolicyOptions) = builder.Configuration.GetConfigs();
+        builder.Services.AddControllers();
 
-            builder.Services.AddControllers();
+        // Configure cors if provided
+        if (corsPolicyOptions != null)
+        {
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowVite", policy =>
+                foreach (var policy in corsPolicyOptions.Policies)
                 {
-                    policy
-                        .WithOrigins("http://localhost:5173")
-                        .AllowAnyHeader()
-                        .AllowAnyMethod();
-                });
+                    options.AddPolicy(policy.Name, p =>
+                    {
+                        if (policy.AllowedOrigins.Any())
+                            p.WithOrigins([.. policy.AllowedOrigins]);
+
+                        if (policy.AllowAnyHeader)
+                            p.AllowAnyHeader();
+
+                        if (policy.AllowAnyMethod)
+                            p.AllowAnyMethod();
+
+                        if (policy.AllowAnyMethod)
+                            p.AllowCredentials();
+                    });
+                }
             });
+        }
 
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
-            builder.Services.AddScoped<IComputationService, ComputationService>();
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen();
+        builder.Services.AddServices(builder.Configuration, true);
 
-            var app = builder.Build();
+        if (migrate && mongoDbOptions != null)
+        {
+            Console.WriteLine($"Migrating MongoDB migrations");
+            MigrationRunner runner = new MigrationRunner(mongoDbOptions.ConnectionString);
+            var task = runner
+                .RegisterLocator(
+                    new AssemblyMigrationLocator(
+                        Assembly.GetExecutingAssembly().Location
+                    )
+                ).RunAsync();
+            task.Wait();
+            Console.WriteLine("Migration completed");
+            return;
+        }
 
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
+        if (revert && mongoDbOptions != null && revertVersion != null)
+        {   
+            var versions = revertVersion.Split('_');
+            var orderedVersions = versions
+                .Select(d => SemVersion.Parse(d).ToVersion())
+                .OrderByDescending(v => v)
+                .ToList();
+                
+            MigrationRunner runner = new MigrationRunner(mongoDbOptions.ConnectionString);
+            
+            foreach (var version in orderedVersions)
             {
-                app.UseSwagger();
-                app.UseSwaggerUI();
+                Console.WriteLine($"Reverting MongoDB migrations to version {version}...");    
+                try {
+                    var task = runner
+                    .RegisterLocator(
+                        new AssemblyMigrationLocator(
+                            Assembly.GetExecutingAssembly().Location
+                        )
+                    ).RevertAsync(version.ToString());
+                    task.Wait();
+                } catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to revert version {version}. Exception: {ex}");
+                }
             }
 
-            app.UseHttpsRedirection();
-
-            app.UseCors("AllowVite");
-
-            app.UseAuthorization();
-
-
-            app.MapControllers();
-
-            app.Run();
+            Console.WriteLine("Revert completed");
+            return;
         }
+
+
+        var app = builder.Build();
+
+        // Configure the HTTP request pipeline.
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI();
+        }
+
+        // Run https redirection first if possible before checking cors
+        app.UseHttpsRedirection();
+
+        if (corsPolicyOptions != null)
+        {
+            app.UseCors(corsPolicyOptions.Use);
+        }
+
+        app.UseAuthorization();
+        app.MapControllers();
+
+        app.MapHub<SignalRHub>("/test");
+        app.MapHub<LobbyHub>("/match");
+
+        app.Run();
     }
 }

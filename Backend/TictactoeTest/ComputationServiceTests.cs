@@ -1,8 +1,9 @@
+using Semver;
 using Tictactoe.Services;
 
 namespace TictactoeTest
 {
-    public class ComputationServiceTest
+    public class ComputationServiceTests
     {
         [Fact]
         public void Test_Board_Representation()
@@ -151,6 +152,23 @@ namespace TictactoeTest
             var playerMove = (ushort)241;
             var nextMove = svc.Handle(playerMove, cpuMove);
             Assert.Equal(0, nextMove.Item1);
+        }
+
+        [Fact]
+        public void Weird()
+        {
+            var versions = "1.0.0_0.0.1".Split('_');
+            Console.WriteLine(versions);
+            var m = SemVersion.Parse("0.0.1").ToVersion();
+            var n = SemVersion.Parse("0.0.1").ToVersion() == SemVersion.Parse("0.0.1").ToVersion();
+            var orderedVersions = versions
+                .Select(d=> {
+                    var m = SemVersion.Parse(d);
+                    return m;
+                    });
+                //.OrderByDescending(v => v)
+                //.ToList();
+
         }
 
     }

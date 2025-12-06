@@ -74,7 +74,7 @@ function App() {
   const update = useCallback(async (myMoves: number, oppMoves: number) => {
       try {
         setLoading(true);
-        const value = await fetch("http://localhost:5101/Computation", {
+        const value = await fetch("http://localhost:5000/Computation", {
           method: "POST",
           headers: {
             "content-type": "application/json"
