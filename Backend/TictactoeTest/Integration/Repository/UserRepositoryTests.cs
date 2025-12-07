@@ -1,33 +1,25 @@
 using MongoDB.Driver;
-using Mongo2Go;
 using Tictactoe.Types.Interfaces;
 using Tictactoe.Repositories;
 using MongoDB.Bson;
 using FluentAssertions;
 using Tictactoe.Models;
 using Tictactoe.Helpers;
+using TictactoeTest.Helper;
 
-namespace TictactoeTest;
+namespace TictactoeTest.Integration.Repository;
 
-public class UserRepositoryTests
+public class UserRepositoryTests: IClassFixture<MongoFixture>
 {
-    private readonly MongoDbRunner _runner;
     private readonly IDatabaseCollection _collection;
 
-    public UserRepositoryTests()
+    public UserRepositoryTests(MongoFixture fixture)
     {
-        _runner = MongoDbRunner.Start();
-        var client = new MongoClient(_runner.ConnectionString);
-        var database = client.GetDatabase("testdb");
-        _collection = new DatabaseCollection(database);
+        var database = fixture.Database;
+        _collection = new TestDatabaseCollection(database, Guid.NewGuid().ToString());
 
         // Clean collection before each test
         _collection.Users.DeleteMany(FilterDefinition<User>.Empty);
-    }
-
-    ~UserRepositoryTests()
-    {
-        _runner.Dispose();
     }
 
     [Fact]

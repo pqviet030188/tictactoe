@@ -10,9 +10,9 @@ import { store } from "./store";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
-    <Provider store={store}>
+    {/* <Provider store={store}>
       <AppSaga />
     </Provider>
-    <SignalRApp />
+    <SignalRApp /> */}
   </StrictMode>
 );

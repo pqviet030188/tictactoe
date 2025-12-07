@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using Tictactoe.Types.Enums;
@@ -16,11 +17,13 @@ public class Match
 
     [BsonElement("hashedPassword")] 
     [BsonRepresentation(BsonType.String)]
-    public string HashedPassword { get; set; } = null!;
+    [JsonIgnore]
+    public string? HashedPassword { get; set; } = null!;
 
     [BsonElement("salt")]
     [BsonRepresentation(BsonType.String)]
-    public string Salt { get; set; } = null!;
+    [JsonIgnore]
+    public string? Salt { get; set; } = null!;
 
     [BsonElement("creatorId")]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -59,6 +62,14 @@ public class Match
         get
         {
             return GameOutcome != default && GameOutcome != GameOutcome.Going;
+        }
+    }
+
+    public bool IsBlocked
+    {
+        get
+        {
+            return !string.IsNullOrEmpty(HashedPassword) && !string.IsNullOrEmpty(Salt);
         }
     }
 

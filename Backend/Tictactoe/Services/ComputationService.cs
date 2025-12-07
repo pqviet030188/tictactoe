@@ -75,25 +75,16 @@ public static class ComputationServiceExtension
     public static bool HasMoreThanOneBit1(this ushort value)
     {
         return BitOperations.PopCount(value) > 1;
-        ushort mask = 1;
-        ushort count = 0;
-        while(true)
-        {
-            if (mask > ALL)
-            {
-                break;
-            }
+    }
 
-            count += (ushort)(mask & value) == mask ? (ushort)1 : (ushort)0;
-
-            if (count > 1)
-                return true;
-
-            mask = (ushort)(mask << 1);
-        }
-
-        return false;
-
+    public static short Won(this ushort value, ushort opponent)
+    {
+        return (ushort)(value | opponent) == ALL? 
+            (short)0: 
+            value.GetScore() == WIN? 
+            (short)1: 
+            opponent.GetScore() == WIN? 
+            (short)-1: (short)-2;
     }
 
     public static ushort GetScore(this ushort value)
@@ -147,7 +138,8 @@ public static class ComputationServiceExtension
         if (myTurn)
         {
             oppMoves = (ushort)(oppMoves | nextMove);
-        } else
+        }
+        else
         {
             myMoves = (ushort)(myMoves | nextMove);
         }
@@ -182,9 +174,9 @@ public static class ComputationServiceExtension
             var myMovesRank = new List<(ushort move, int score)>();
             foreach (var move in allMyPotentialMoves)
             {
-                myMovesRank.Add(NextMove(myMoves, oppMoves, 
-                    depth == 0? 
-                    (ushort)(move.move ^ myMoves): myNextMove, 
+                myMovesRank.Add(NextMove(myMoves, oppMoves,
+                    depth == 0 ?
+                    (ushort)(move.move ^ myMoves) : myNextMove,
                     (ushort)(move.move ^ myMoves), false, (ushort)(depth + 1)));
             }
 
@@ -233,7 +225,7 @@ public static class ComputationServiceExtension
         return oppBestMoves.ElementAt(new Random().Next(0, oppBestMoves.Count()));
     }
 
-    public static (ushort move, int score) Minimax(this ushort myMoves, ushort oppMoves) 
+    public static (ushort move, int score) Minimax(this ushort myMoves, ushort oppMoves)
     {
         return NextMove(myMoves, oppMoves, 0, 0, true, 0);
     }
@@ -244,15 +236,8 @@ public interface IComputationService
     public (ushort, int) Handle(ushort playerMoves, ushort cpuMoves);
 }
 
-public class ComputationService: IComputationService
+public class ComputationService : IComputationService
 {
-   
-    public ComputationService()
-    {
-
-    }
-
-   
     public (ushort, int) Handle(ushort playerMoves, ushort cpuMoves)
     {
         // myMoves
@@ -263,7 +248,7 @@ public class ComputationService: IComputationService
             return (0, 1);
         }
 
-        if (cpuScore ==  ComputationServiceExtension.WIN)
+        if (cpuScore == ComputationServiceExtension.WIN)
         {
             // cpu makes final move, player will lose
             return (cpuMove, -1);

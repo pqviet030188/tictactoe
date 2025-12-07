@@ -21,10 +21,14 @@ public class UserRepository(IDatabaseCollection databaseCollection): IUserReposi
         return PasswordHelper.VerifyPassword(password, user.HashedPassword, user.Salt) ? user : null;
     }
 
-    public async Task<User?> Create(string email, string password, CancellationToken cancellationToken = default)
+    public async Task<User> Create(string email, string password, CancellationToken cancellationToken = default)
     {
+        var user = await GetByEmail(email, cancellationToken);
+        if (user != null)
+            throw new InvalidOperationException("User with this email already exists");
+
         var (hash, salt) = PasswordHelper.HashPassword(password);
-        var user = new User
+        var nuser = new User
         {
             Email = email,
             HashedPassword = hash,
@@ -33,7 +37,7 @@ public class UserRepository(IDatabaseCollection databaseCollection): IUserReposi
             UpdatedAt = DateTime.UtcNow,
         };
 
-        await databaseCollection.Users.InsertOneAsync(user, null, cancellationToken);
-        return user;
+        await databaseCollection.Users.InsertOneAsync(nuser, null, cancellationToken);
+        return nuser;
     }
 }

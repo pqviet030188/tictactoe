@@ -7,8 +7,10 @@ function Chat() {
 
   useEffect(() => {
     const connect = new signalR.HubConnectionBuilder()
-      .withUrl("http://localhost:5000/match", {
-        withCredentials: false
+      //.withUrl("http://localhost:5000/lobby", {
+      .withUrl("http://localhost:5101/lobby", {
+        //withCredentials: false,
+         // accessTokenFactory: () => `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiI2OTM0MWM2NjAyNGQ5YWRkZWZmMjU4OGMiLCJlbWFpbCI6InBxdmlldDAzMDE4OEBnbWFpbC5jb20iLCJ0b2tlbl91c2UiOiJhY2Nlc3MiLCJuYmYiOjE3NjUwMjMxNzIsImV4cCI6MTc2NTA0MTE3MiwiaWF0IjoxNzY1MDIzMTcyLCJpc3MiOiJUaWN0YWN0b2VJc3N1ZXJEZXYiLCJhdWQiOiJUaWN0YWN0b2VBdWRpZW5jZURldiJ9.w-rZj_8zspj8Ch4ZwPjobLovxDWaHJWRS9x0C4W-YqA`
       }) 
       .withAutomaticReconnect()
       .build();
@@ -31,7 +33,11 @@ function Chat() {
 
   const sendMessage = async (user: any, message: any) => {
     if (connection) {
-      await connection.invoke("SendMessage", user, message);
+      // const result = await connection.invoke("IDK", user, message);
+      // console.log(result);
+
+      const lb = await connection.invoke("JoinLobby");
+      console.log(lb);
     }
   };
 

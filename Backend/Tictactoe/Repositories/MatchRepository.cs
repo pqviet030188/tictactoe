@@ -55,9 +55,9 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
             .SortByDescending(d=>d.CreatedAt).Limit(limit).ToListAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<Match>> GetOldestMatches(string? userId, string recentOldestMatchId, int limit, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Match>> GetOlderMatches(string? userId, string recentOlderMatchId, int limit, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(recentOldestMatchId))
+        if (string.IsNullOrWhiteSpace(recentOlderMatchId))
             return Enumerable.Empty<Match>();
         
         var filter = Builders<Match>.Filter;
@@ -71,12 +71,12 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
                     filter.Eq(d=>d.CreatorId, userId),
                     filter.Eq(d=>d.MemberId, userId)
                 ),
-                filter.Lt(d=>d.Id, recentOldestMatchId)
+                filter.Lt(d=>d.Id, recentOlderMatchId)
             );            
         }
         else
         {
-             ffilter = filter.Lt(d=>d.Id, recentOldestMatchId);
+             ffilter = filter.Lt(d=>d.Id, recentOlderMatchId);
         }
 
         return await databaseCollection.Matches.Find(ffilter!)
@@ -89,7 +89,15 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
             Builders<Match>.Filter.Eq(m => m.Id, id),
             Builders<Match>.Filter.Or(
                 Builders<Match>.Filter.Eq(m => m.CreatorId, userId),
-                Builders<Match>.Filter.Eq(m => m.MemberId, userId)
+                Builders<Match>.Filter.Eq(m => m.MemberId, userId),
+                // Builders<Match>.Filter.Eq(m => m.MemberMoves, 0)
+                Builders<Match>.Filter.And(
+
+                    // Allow joining as member if there is no member yet
+                    Builders<Match>.Filter.Eq(m => m.MemberMoves, 0),
+                    Builders<Match>.Filter.Eq(m => m.MemberStatus, PlayerStatus.Left),
+                    Builders<Match>.Filter.Eq(m => m.MemberId, null)
+                )
             )
         );
 
@@ -106,9 +114,16 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
                   },
                   { "memberStatus", new BsonDocument("$cond", new BsonArray
                       {
-                          new BsonDocument("$eq", new BsonArray { "$memberId", new ObjectId(userId) }),
+                          new BsonDocument("$eq", new BsonArray { "$creatorId", new ObjectId(userId) }),
+                          "$memberStatus",
                           status,
-                          "$memberStatus"
+                      })
+                  },
+                  { "memberId", new BsonDocument("$cond", new BsonArray
+                      {
+                          new BsonDocument("$eq", new BsonArray { "$creatorId", new ObjectId(userId) }),
+                          "$memberId",
+                          new ObjectId(userId),
                       })
                   },
                 { "updatedAt", DateTime.UtcNow }
@@ -129,7 +144,7 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
         return updatedMatch;
     }
 
-    public async Task<Match> UpdatePlayer(string id, string userId, int playerMove, CancellationToken cancellationToken = default)
+    public async Task<Match> UpdatePlayer(string id, string userId, uint playerMove, GameOutcome gameOutcome, CancellationToken cancellationToken = default)
     {
         var filter = Builders<Match>.Filter.And(
             Builders<Match>.Filter.Eq(m => m.Id, id),
@@ -164,6 +179,9 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
                         GameTurn.Creator
                     })
                 },
+                {
+                    "gameOutcome", gameOutcome
+                },
                 { "updatedAt", DateTime.UtcNow }
             })
         };
@@ -183,9 +201,9 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
         return updatedMatch;
     }
 
-    public async Task<Match> Create(string userId, string name, string password, CancellationToken cancellationToken = default)
+    public async Task<Match> Create(string userId, string name, string? password, CancellationToken cancellationToken = default)
     {
-        var (hash, salt) = PasswordHelper.HashPassword(password);
+        var (hash, salt) = string.IsNullOrEmpty(password)? (null, null): PasswordHelper.HashPassword(password);
         var match = new Match
         {
             Name = name,
@@ -235,5 +253,10 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
         );
 
         return updatedMatch;
+    }
+
+    public async Task<Match?> GetById(string id, CancellationToken cancellationToken = default)
+    {
+        return await databaseCollection.Matches.Find(m => m.Id == id).FirstOrDefaultAsync(cancellationToken);
     }
 }

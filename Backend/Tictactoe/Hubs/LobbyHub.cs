@@ -1,30 +1,92 @@
 using Microsoft.AspNetCore.SignalR;
+using Tictactoe.DTOs;
 using Tictactoe.Extensions;
+using Tictactoe.Types.Attributes;
+using Tictactoe.Types.Interfaces;
 
 namespace Tictactoe.Hubs;
 
-public class LobbyHub: Hub
+public class LobbyHub(IMatchRepository matchRepository): Hub, ILobbyHub
 {
-    public static string UserJoinLobbyEvent = "UserJoinLobby";
     public static string MatchsCreatedEvent = "MatchesCreated";
     public static string MatchesUpdatedEvent = "MatchesUpdated";
 
-    public static string MatchNotificationGroup(string userId) => $"{userId}/matches";
+    public static string MatchNotificationGlobalGroup() => "matches";
 
-    public async Task GetMatches(string user, string message)
+    [UseAuthentication]
+    public async Task<MatchResultsWithError> GetLatestMatches(MatchLoadingRequest request)
     {
-        await Clients.All.SendAsync("ReceiveMessage", user, message);
+        var userId = Context.User!.GetUserId();
+        var latestMatchId = request.MatchId;
+        var matches = await matchRepository.GetLatestMatches(userId, latestMatchId!, 10, Context.ConnectionAborted);
+        return new MatchResultsWithError()
+        {
+            Matches = matches,
+            Count = matches.Count(),
+        };
     }
 
-    public async Task JoinLobbyRoom()
+    [UseAuthentication]
+    public async Task<MatchResultsWithError> GetOlderMatches(MatchLoadingRequest request)
     {
-        var userId = Context.User?.GetUserId();
-        var roomId = MatchNotificationGroup(userId!);
+        var userId = Context.User!.GetUserId();
+        var matchId = request.MatchId;
+        var matches = await matchRepository.GetOlderMatches(userId, matchId!, 10, Context.ConnectionAborted);
+        return new MatchResultsWithError()
+        {
+            Matches = matches,
+            Count = matches.Count(),
+        };
+    }
+
+    [UseAuthentication]
+    public async Task<MatchResultsWithError> JoinLobby()
+    {
+        var globalRoomId = MatchNotificationGlobalGroup();
 
         // Join group or socket room 
-        await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, globalRoomId, Context.ConnectionAborted);
+        
+        // return latest matches
+        var matches = await matchRepository.GetLatestMatches(null, null, 10, Context.ConnectionAborted);
+        return new MatchResultsWithError()
+        {
+            Matches = matches,
+            Count = matches.Count(),
+        };
+    }
 
-        // Notify the user joined
-        await Clients.Group(roomId).SendAsync(UserJoinLobbyEvent, userId);
+    [UseAuthentication]
+    public async Task<ErrorResponse> ExitLobby()
+    {
+        var globalRoomId = MatchNotificationGlobalGroup();
+
+        // Join group or socket room 
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, globalRoomId, Context.ConnectionAborted);
+
+        // returns no error
+        return new ErrorResponse();
+    }
+
+    [UseAuthentication]
+    public async Task<MatchResultsWithError> CreateRoom(CreateRoomRequest request)
+    {
+        var userId = Context.User!.GetUserId();
+
+        var newMatch = await matchRepository.Create(userId, request.Name, request.Password, Context.ConnectionAborted);
+
+        // Inform every one that a room is created
+        var globalRoomId = MatchNotificationGlobalGroup();
+        await Clients.Group(globalRoomId).SendAsync(MatchsCreatedEvent, new MatchResults()
+        {
+            Matches = [newMatch],
+            Count = 1
+        }, Context.ConnectionAborted);
+
+        return new MatchResultsWithError()
+        {
+            Matches = [newMatch],
+            Count = 1
+        };
     }
 }

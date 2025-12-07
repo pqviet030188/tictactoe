@@ -1,33 +1,25 @@
 using MongoDB.Driver;
-using Mongo2Go;
 using Tictactoe.Types.Interfaces;
 using Tictactoe.Repositories;
 using MongoDB.Bson;
 using FluentAssertions;
 using Tictactoe.Models;
 using Tictactoe.Types.Enums;
+using TictactoeTest.Helper;
 
-namespace TictactoeTest;
+namespace TictactoeTest.Integration.Repository;
 
-public class MatchServiceTests
+public class MatchRepositoryTests: IClassFixture<MongoFixture>
 {
-    private readonly MongoDbRunner _runner;
     private readonly IDatabaseCollection _collection;
 
-    public MatchServiceTests()
+    public MatchRepositoryTests(MongoFixture fixture)
     {
-        _runner = MongoDbRunner.Start();
-        var client = new MongoClient(_runner.ConnectionString);
-        var database = client.GetDatabase("testdb");
-        _collection = new DatabaseCollection(database);
+        var database = fixture.Database;
+        _collection = new TestDatabaseCollection(database, Guid.NewGuid().ToString());
 
         // Clean collection before each test
         _collection.Matches.DeleteMany(FilterDefinition<Match>.Empty);
-    }
-
-    ~MatchServiceTests()
-    {
-        _runner.Dispose();
     }
 
     [Fact]
@@ -70,7 +62,7 @@ public class MatchServiceTests
     }
 
     [Fact]
-    public async Task GetOldestMatches_ShouldReturnEmptyResultsForEmptyInputs()
+    public async Task GetOlderMatches_ShouldReturnEmptyResultsForEmptyInputs()
     {
         var userId = ObjectId.GenerateNewId().ToString();
         var otherUserId = ObjectId.GenerateNewId().ToString();
@@ -84,13 +76,13 @@ public class MatchServiceTests
         await _collection.Matches.InsertManyAsync(matches);
 
         var matchRepo = new MatchRepository(_collection);
-        var latestMatches = (await matchRepo.GetOldestMatches(null, null!, 10, CancellationToken.None)).ToList();
+        var latestMatches = (await matchRepo.GetOlderMatches(null, null!, 10, CancellationToken.None)).ToList();
 
         latestMatches.Should().HaveCount(0);
     }
 
     [Fact]
-    public async Task GetOldestMatches_ShouldReturnOnlyUserMatchesBeforeMatchId_WithLessThan10Records()
+    public async Task GetOlderMatches_ShouldReturnOnlyUserMatchesBeforeMatchId_WithLessThan10Records()
     {
         var userId = ObjectId.GenerateNewId().ToString();
         var otherUserId = ObjectId.GenerateNewId().ToString();
@@ -106,7 +98,7 @@ public class MatchServiceTests
         var matchRepo = new MatchRepository(_collection);
         var lastMatchId = matches[2].Id;
 
-        var latestMatches = (await matchRepo.GetOldestMatches(userId, lastMatchId!, 10, CancellationToken.None)).ToList();
+        var latestMatches = (await matchRepo.GetOlderMatches(userId, lastMatchId!, 10, CancellationToken.None)).ToList();
 
         latestMatches.Should().HaveCount(2);
         latestMatches[0].Should().BeEquivalentTo(matches[1], options => options
@@ -169,7 +161,7 @@ public class MatchServiceTests
     }
 
     [Fact]
-    public async Task GetOldesttMatches_ShouldReturnOnlyUserMatchesBeforeMatchId_WithMoreThan10Records()
+    public async Task GetOldertMatches_ShouldReturnOnlyUserMatchesBeforeMatchId_WithMoreThan10Records()
     {
         // Setup
         var userId = ObjectId.GenerateNewId().ToString();
@@ -179,7 +171,7 @@ public class MatchServiceTests
         // Act
         var matchRepo = new MatchRepository(_collection);
         var lastMatchId = matches[15].Id;
-        var latestMatches = (await matchRepo.GetOldestMatches(userId, lastMatchId!, 10, CancellationToken.None)).ToList();
+        var latestMatches = (await matchRepo.GetOlderMatches(userId, lastMatchId!, 10, CancellationToken.None)).ToList();
 
         // Assert
         latestMatches.Should().HaveCount(10);
@@ -253,7 +245,7 @@ public class MatchServiceTests
     }
 
     [Fact]
-    public async Task GetOldestMatches_ShouldReturnOnlyUserMatchesBeforeLastMatchId_WithOldest()
+    public async Task GetOlderMatches_ShouldReturnOnlyUserMatchesBeforeLastMatchId_WithOldest()
     { 
         // Setup
         var userId = ObjectId.GenerateNewId().ToString();
@@ -263,7 +255,7 @@ public class MatchServiceTests
         // Act
         var matchRepo = new MatchRepository(_collection);
         var lastMatchId = matches[15].Id;
-        var latestMatches = (await matchRepo.GetOldestMatches(null, lastMatchId!, 10, CancellationToken.None)).ToList();
+        var latestMatches = (await matchRepo.GetOlderMatches(null, lastMatchId!, 10, CancellationToken.None)).ToList();
 
         // Assert
         latestMatches.Should().HaveCount(10);
@@ -333,6 +325,8 @@ public class MatchServiceTests
         // Assert - only creatorStatus should change
         updatedMatchCreator.CreatorStatus.Should().Be(PlayerStatus.Joined);
         updatedMatchCreator.MemberStatus.Should().Be(PlayerStatus.Left);
+        updatedMatchCreator.CreatorId.Should().Be(creatorId);
+        updatedMatchCreator.MemberId.Should().Be(memberId);
 
         // Act - update member status
         var updatedMatchMember = await matchRepo.UpdatePlayer(match.Id, memberId, PlayerStatus.Left);
@@ -340,6 +334,65 @@ public class MatchServiceTests
         // Assert - only memberStatus should change
         updatedMatchMember.CreatorStatus.Should().Be(PlayerStatus.Joined);
         updatedMatchMember.MemberStatus.Should().Be(PlayerStatus.Left);
+        updatedMatchMember.CreatorId.Should().Be(creatorId);
+        updatedMatchMember.MemberId.Should().Be(memberId);
+    }
+
+    [Fact]
+    public async Task UpdatePlayerStatus_ShouldJoinUser()
+    {
+        // Arrange
+        var creatorId = ObjectId.GenerateNewId().ToString();
+        var memberId = ObjectId.GenerateNewId().ToString();
+
+        var match = new Match
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            CreatorId = creatorId,
+            CreatorStatus = PlayerStatus.Joined,
+            MemberStatus = PlayerStatus.Left,
+            MemberMoves = 0
+        };
+
+        await _collection.Matches.InsertOneAsync(match);
+
+        var matchRepo = new MatchRepository(_collection);
+
+        // Act - update creator status
+        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, memberId, PlayerStatus.Joined);
+
+        // Assert - only creatorStatus should change
+        updatedMatchCreator.CreatorStatus.Should().Be(PlayerStatus.Joined);
+        updatedMatchCreator.MemberStatus.Should().Be(PlayerStatus.Joined);
+        updatedMatchCreator.CreatorId.Should().Be(creatorId);
+        updatedMatchCreator.MemberId.Should().Be(memberId);
+    }
+
+    [Fact]
+    public async Task UpdatePlayerStatus_ShouldNotJoinUser()
+    {
+        // Arrange
+        var creatorId = ObjectId.GenerateNewId().ToString();
+        var memberId = ObjectId.GenerateNewId().ToString();
+
+        var match = new Match
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            CreatorId = creatorId,
+            MemberId = ObjectId.GenerateNewId().ToString(),
+            CreatorStatus = PlayerStatus.Joined,
+            MemberStatus = PlayerStatus.Left
+        };
+
+        await _collection.Matches.InsertOneAsync(match);
+
+        var matchRepo = new MatchRepository(_collection);
+
+        // Act - update creator status
+        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, memberId, PlayerStatus.Joined);
+
+        // Assert
+        updatedMatchCreator.Should().BeNull();
     }
 
     [Fact]
@@ -383,6 +436,7 @@ public class MatchServiceTests
             MemberId = memberId,
             CreatorStatus = PlayerStatus.Left,
             MemberStatus = PlayerStatus.Left,
+            GameOutcome = GameOutcome.Going,
             CreatorMoves = 1,
             MemberMoves = 2,
         };
@@ -392,20 +446,22 @@ public class MatchServiceTests
         var matchRepo = new MatchRepository(_collection);
 
         // Act - update creator moves
-        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, creatorId, 5);
+        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, creatorId, 5, GameOutcome.Going);
 
         // Assert - only creatorMoves should change
         updatedMatchCreator.CreatorMoves.Should().Be(5);
         updatedMatchCreator.MemberMoves.Should().Be(2);
         updatedMatchCreator.NextTurn.Should().Be(GameTurn.Member);
+        updatedMatchCreator.GameOutcome.Should().Be(GameOutcome.Going);
 
         // Act - update member moves
-        var updatedMatchMember = await matchRepo.UpdatePlayer(match.Id, memberId, 6);
+        var updatedMatchMember = await matchRepo.UpdatePlayer(match.Id, memberId, 6, GameOutcome.CreatorWin);
 
         // Assert - only member moves should change
         updatedMatchMember.CreatorMoves.Should().Be(5);
         updatedMatchMember.MemberMoves.Should().Be(6);
         updatedMatchMember.NextTurn.Should().Be(GameTurn.Creator);
+        updatedMatchMember.GameOutcome.Should().Be(GameOutcome.CreatorWin);
     }
 
     [Fact]
@@ -429,7 +485,7 @@ public class MatchServiceTests
         var matchRepo = new MatchRepository(_collection);
 
         // Act - update creator moves with invalid user id
-        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, ObjectId.GenerateNewId().ToString(), PlayerStatus.Joined);
+        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, ObjectId.GenerateNewId().ToString(), 2, GameOutcome.PlayerWin);
 
         // Assert
         updatedMatchCreator.Should().BeNull();

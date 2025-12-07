@@ -3,6 +3,10 @@ using Tictactoe.Configurations;
 using Tictactoe.Hubs;
 using CSharp.Mongo.Migration.Core;
 using CSharp.Mongo.Migration.Core.Locators;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
+using System.Text;
+using Tictactoe.Types.Options;
 using System.Reflection;
 using Semver;
 namespace Tictactoe;
@@ -23,8 +27,29 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
         builder.Services.AddOptions(builder.Configuration);
         var (redisOptions, mongoDbOptions, corsPolicyOptions) = builder.Configuration.GetConfigs();
-        builder.Services.AddControllers();
+        builder.Services.AddControllers(options =>
+        {
+            options.ModelValidatorProviders.Clear();
+        })
+        .ConfigureApiBehaviorOptions(options =>
+        {
+            options.InvalidModelStateResponseFactory = context =>
+            {
+                var errors = context.ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .Select(x => new
+                    {
+                        field = x.Key,
+                        message = string.Join("; ", x.Value?.Errors.Select(e => e.ErrorMessage) ?? [])
+                    });
 
+                return new BadRequestObjectResult(new
+                {
+                    message = "Validation failed",
+                    errors = errors
+                });
+            };
+        });
         // Configure cors if provided
         if (corsPolicyOptions != null)
         {
@@ -52,7 +77,46 @@ public class Program
 
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
-        builder.Services.AddServices(builder.Configuration, true);
+        builder.Services.AddServices(builder.Configuration);
+
+        // Configure JWT authentication if Jwt config exists
+        var jwtSection = builder.Configuration.GetSection(JwtOptions.OptionSection);
+        var jwtOptions = jwtSection.Get<JwtOptions>();
+        if (jwtOptions != null)
+        {
+            var key = Encoding.UTF8.GetBytes(jwtOptions.Key);
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.RequireHttpsMetadata = false;
+                options.SaveToken = true;
+                options.TokenValidationParameters = TokenService.GetTokenValidationParameters(jwtOptions);
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var authHeader = context.Request.Headers["Authorization"].ToString();
+                        if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+                        {
+                            context.Token = authHeader.Substring("Bearer ".Length).Trim();
+                            return Task.CompletedTask;
+                        }
+
+                        if (context.Request.Cookies.TryGetValue("x-access-token", out var cookieToken))
+                        {
+                            context.Token = cookieToken;
+                            return Task.CompletedTask;
+                        }
+                     
+                        return Task.CompletedTask;
+                    }
+                };
+            });
+        }
 
         if (migrate && mongoDbOptions != null)
         {
@@ -118,11 +182,13 @@ public class Program
             app.UseCors(corsPolicyOptions.Use);
         }
 
+        app.UseAuthentication();
         app.UseAuthorization();
         app.MapControllers();
 
         app.MapHub<SignalRHub>("/test");
-        app.MapHub<LobbyHub>("/match");
+        app.MapHub<LobbyHub>("/lobby");
+        app.MapHub<RoomHub>("/room");
 
         app.Run();
     }

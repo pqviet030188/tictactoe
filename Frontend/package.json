@@ -10,11 +10,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hyper-fetch/core": "^7.5.2",
+    "@hyper-fetch/react": "^7.5.2",
     "@microsoft/signalr": "^10.0.0",
     "@reduxjs/toolkit": "^2.11.0",
+    "@types/js-cookie": "^3.0.6",
+    "@types/react-router-dom": "^5.3.3",
+    "js-cookie": "^3.0.5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-hook-form": "^7.68.0",
     "react-redux": "^9.2.0",
+    "react-router-dom": "^7.10.1",
     "redux-saga": "^1.4.2"
   },
   "devDependencies": {

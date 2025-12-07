@@ -1,9 +1,15 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Tictactoe.Configurations.Options;
+using Tictactoe.DTOs;
+using Tictactoe.Hubs.Filters;
 using Tictactoe.Repositories;
 using Tictactoe.Services;
 using Tictactoe.Types.Interfaces;
+using Tictactoe.Types.Options;
 
 namespace Tictactoe.Configurations;
 
@@ -18,15 +24,33 @@ public static class Configurations
         services.Configure<MongoDbOptions>(
             configuration.GetSection(MongoDbOptions.OptionSection)
         );
+
+        services.Configure<JwtOptions>(
+            configuration.GetSection(JwtOptions.OptionSection)
+        );
     }
 
-    public static void AddServices(this IServiceCollection services, IConfiguration configuration, bool applyMigration)
+    public static void AddServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IComputationService, ComputationService>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IMatchRepository, MatchRepository>();
         services.AddScoped<IDatabaseCollection, DatabaseCollection>();
+        services.AddSingleton<ITokenService, TokenService>();
 
-        var signalRService = services.AddSignalR();
+        services.AddHttpContextAccessor();
+        
+        // Add FluentValidation with automatic validation
+        services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
+        services.AddFluentValidationAutoValidation();
+
+        var signalRService = services.AddSignalR(options =>
+        {
+            options.AddFilter<AccessTokenHubFilter>();
+            options.AddFilter<RoomHubFilter>();
+        });
+        
         var (redisOptions, mongoDbOptions, _) = configuration.GetConfigs();
 
         if (redisOptions != null)
@@ -52,7 +76,9 @@ public static class Configurations
             {
                 var options = sp.GetRequiredService<IOptions<MongoDbOptions>>().Value;
                 var client = sp.GetRequiredService<IMongoClient>();
-                return client.GetDatabase(client.Settings.Credential.Source);
+                var mongoUrl = MongoUrl.Create(options.ConnectionString);
+                var dbName = mongoUrl?.DatabaseName ?? client.Settings?.Credential?.Source;
+                return client.GetDatabase(dbName);
             });
         }
     }

@@ -3,7 +3,7 @@ import { fetchUser, useAppSelector } from "./store";
 
 function App() {
    const dispatch = useDispatch();
-  const { data, loading, error } = useAppSelector((state) => state.user);
+  const { currentUser, loading, error } = useAppSelector((state) => state.user);
 
   return (
     <div>
@@ -11,7 +11,7 @@ function App() {
 
       {loading && <p>Loading…</p>}
       {error && <p>Error: {error}</p>}
-      {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
+      {currentUser && <pre>{JSON.stringify(currentUser, null, 2)}</pre>}
     </div>
   );  
 }
