@@ -2,7 +2,6 @@ import { Client, type QueryParamsType } from '@hyper-fetch/core';
 import config from '../../config';
 import { authRequests } from './auth';
 import { authService } from '../../services';
-import { clearUser, store } from '../../store';
 
 // Create Hyperfetch client
 export const client = new Client({
@@ -12,7 +11,6 @@ export const client = new Client({
 
 client.onAuth((request) => {
   const authToken = authService.getAccessToken();
-  console.log("Attaching auth token to request:", authToken);
   if (authToken) {
     return request.setHeaders({
       ...request.headers,

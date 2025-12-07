@@ -22,9 +22,6 @@ export const authApi = {
     
     const authData = response.data!;
     authService.setAuth(authData);
-
-    console.log("Login successful, auth data set.");
-    console.log(authService.getAccessToken());
     return authData;
   },
 

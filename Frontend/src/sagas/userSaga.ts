@@ -12,7 +12,6 @@ function* fetchUserWorker(): Generator<
   UserResponse
 > {
   try {
-    console.log("Fetching user...");
     const response: UserResponse = yield call(() => 
       authRequests.user.send({ payload: {} })
     );

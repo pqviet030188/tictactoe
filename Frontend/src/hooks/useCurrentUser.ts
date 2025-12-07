@@ -8,8 +8,6 @@ export const useCurrentUser = () => {
   const isLoading = useAppSelector(selectUserLoading);
   const error = useAppSelector(selectUserError);
 
-  console.log('useCurrentUser - currentUser:', currentUser, 'isLoading:', isLoading, 'error:', error);
-
   // Determine if user is authenticated
   const isAuthenticated = useMemo(()=>{
 
