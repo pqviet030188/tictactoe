@@ -129,11 +129,6 @@ dotnet test
 | **redis** | 6379 | Redis for SignalR tests |
 | **redisinsight** | 5540 | Redis management UI |
 
-**Why separate?**
-- Tests run the API in-memory using `WebApplicationFactory<Program>`
-- Only infrastructure (MongoDB/Redis) needs to be running
-- Faster test execution without Docker overhead for API
-
 ---
 
 ## 🚀 Quick Start Guide
