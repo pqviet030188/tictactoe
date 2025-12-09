@@ -1,42 +1,42 @@
 version: "3.9"
 
 services:
-  # client:
-  #   container_name: client
-  #   build:
-  #     context: ./Frontend
-  #     dockerfile: dev.Dockerfile
-  #   ports:
-  #     - "5173:5173"
-  #   volumes:
-  #     - ./Frontend:/app
-  #     - node_modules:/app/node_modules
-  #   environment:
-  #     - VITE_API_BASE_URL=http://localhost:5000
-  #     - VITE_APP_NAME=TicTacToe
-  #     - VITE_JWT_COOKIE_NAME=x-access-token
-  #     - VITE_REFRESH_COOKIE_NAME=x-refresh-token
-  #   depends_on:
-  #     - api
+  client:
+    container_name: client
+    build:
+      context: ./Frontend
+      dockerfile: dev.Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./Frontend:/app
+      - node_modules:/app/node_modules
+    environment:
+      - VITE_API_BASE_URL=http://localhost:5000
+      - VITE_APP_NAME=TicTacToe
+      - VITE_JWT_COOKIE_NAME=x-access-token
+      - VITE_REFRESH_COOKIE_NAME=x-refresh-token
+    depends_on:
+      - api
 
-  # api:
-  #   container_name: api
-  #   build:
-  #     context: ./Backend
-  #     dockerfile: dev.Dockerfile
-  #   ports:
-  #     - "5000:5000"
-  #   volumes:
-  #     - ./Backend:/app
-  #     - /app/bin
-  #     - /app/obj
-  #   environment:
-  #     - ASPNETCORE_URLS=http://+:5000
-  #     - Redis__ConnectionString=redis:6379,user=rex,password=rex112233
-  #     - MongoDb__ConnectionString=mongodb://mongo:27017/Tictactoe
-  #   depends_on:
-  #     - mongo
-  #     - redis
+  api:
+    container_name: api
+    build:
+      context: ./Backend
+      dockerfile: dev.Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./Backend:/app
+      - /app/bin
+      - /app/obj
+    environment:
+      - ASPNETCORE_URLS=http://+:5000
+      - Redis__ConnectionString=redis:6379,user=rex,password=rex112233
+      - MongoDb__ConnectionString=mongodb://mongo:27017/Tictactoe
+    depends_on:
+      - mongo
+      - redis
 
   redis:
     image: redis:7
