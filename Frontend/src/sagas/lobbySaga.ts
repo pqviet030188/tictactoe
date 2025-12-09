@@ -36,7 +36,7 @@ import {
   loadLatestMatches,
   createMatch,
 } from "../store/matchSlice";
-import { store } from "../store";
+import { loadUser, logout, onLoginSuccess, store } from "../store";
 import { authRequests } from "../api";
 import { authService } from "../services";
 import type { RequestResponseType } from "@hyper-fetch/core";
@@ -162,7 +162,7 @@ export function* safeInvokeHubWithAuth<
   method: string,
   ...args: unknown[]
 ): Generator<
-  CallEffect | CallEffect<unknown>,
+  CallEffect | CallEffect<unknown> | PutEffect,
   T,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any
@@ -171,8 +171,6 @@ export function* safeInvokeHubWithAuth<
     const result: T = yield call(() =>
       hub.invoke<T>(method, ...args)
     );
-
-    console.log(result);
 
     if (result.error?.errorCode === "AUTH_FAILED") {
       throw new Error(result.error?.errorCode);
@@ -191,9 +189,11 @@ export function* safeInvokeHubWithAuth<
       );
 
       if (!rresponse.success || !rresponse.data) {
-        authService.clearAuth();
+        yield put(logout());
+      } else {
+        yield put(loadUser());
       }
-
+      
       const result: T = yield call(() =>
         hub.invoke<T>(method, ...args)
       );
