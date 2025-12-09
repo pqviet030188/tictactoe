@@ -4,14 +4,15 @@ import type { AppDispatch, RootState } from "./types";
 import { useDispatch, useSelector, type TypedUseSelectorHook } from "react-redux";
 
 import { userReducer } from "./userSlice";
+import { matchReducer } from "./matchSlice";
 import rootSaga from "../sagas";
-
 
 const sagaMiddleware = createSagaMiddleware();
 
 export const store = configureStore({
   reducer: {
     user: userReducer,
+    match: matchReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({ thunk: false }).concat(sagaMiddleware),

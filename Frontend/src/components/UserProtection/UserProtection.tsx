@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useCurrentUser } from "../../hooks";
 import { useNavigate } from "react-router-dom";
+import { useAppSelector } from "../../store";
 
 interface UserProtectionProps {
   children: React.ReactNode;
@@ -14,15 +15,26 @@ export const UserProtection: React.FC<UserProtectionProps> = ({
   redirectTo,
 }) => {
   const navigate = useNavigate();
-  const { shouldLogUserOff, isAuthenticated } = useCurrentUser();
-
+  const loginState = useAppSelector((state) => state.user.login);
+  const currentUserState = useCurrentUser();
   useEffect(() => {
-    if (shouldLogUserOff) {
+    // Redirect if not current user not found and login failed
+    // and there is an error fetching current user
+    if (
+      !currentUserState.currentUser &&
+      !!currentUserState.error &&
+      !loginState.success
+    ) {
       navigate(redirectTo);
     }
-  }, [navigate, redirectTo, shouldLogUserOff]);
+  }, [
+    loginState.success,
+    currentUserState.currentUser,
+    !!currentUserState.error,
+    navigate,
+  ]);
 
-  if (!isAuthenticated) {
+  if (!currentUserState.currentUser) {
     return <>{fallback}</>;
   }
 

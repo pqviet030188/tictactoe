@@ -1,3 +1,5 @@
+powershell -ExecutionPolicy Bypass -File ./watch.ps1
+
 # TicTacToe – React + .NET
 
 A simple TicTacToe game where you play against a CPU opponent.  

@@ -1,31 +1,29 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { TicTacToeGame } from '../TicTacToeGame';
-import { authApi } from '../../api';
-import { useCurrentUser } from '../../hooks';
-import './Game.css';
+import React, { useCallback, useEffect, useState } from "react";
+import { GameMenu } from "../GameMenu";
+import "./Game.css";
+import { useNavigate } from "react-router-dom";
+
+type GameMode = "menu" | "vsCpu" | "vsPlayer";
 
 export const Game: React.FC = () => {
+  const [gameMode, setGameMode] = useState<GameMode>("menu");
   const navigate = useNavigate();
-  const { currentUser } = useCurrentUser();
 
-  const handleLogout = () => {
-    authApi.logout();
-    navigate('/');
-  };
+  const handleGameModeSelect = useCallback((mode: "vsCpu" | "vsPlayer") => {
+    setGameMode(mode);
+  }, []);
+
+  useEffect(() => {
+    if (gameMode === "vsCpu") {
+      navigate("/solo");
+    } else if (gameMode === "vsPlayer") {
+      navigate("/lobby");
+    }
+  }, [navigate, gameMode]);
 
   return (
     <div className="game-container">
-      <div className="game-header">
-        <h1 className="welcome-message">
-          Welcome back, {currentUser?.email}!
-        </h1>
-        <button onClick={handleLogout} className="logout-button">
-          Logout
-        </button>
-      </div>
-      
-      <TicTacToeGame />
+      <GameMenu onGameModeSelect={handleGameModeSelect} />
     </div>
   );
 };

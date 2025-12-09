@@ -1,7 +1,7 @@
 import Cookies from 'js-cookie';
 import config from '../config';
 import type { AuthResponse } from '../types';
-import { clearUser, store } from '../store';
+// import { clearUser, store } from '../store';
 
 export const authService = {
   setAuth(authData: AuthResponse): void {
@@ -29,6 +29,5 @@ export const authService = {
   clearAuth(): void {
     Cookies.remove(config.cookies.accessToken);
     Cookies.remove(config.cookies.refreshToken);  
-    store.dispatch(clearUser());
   }
 };

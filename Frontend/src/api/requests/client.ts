@@ -2,6 +2,7 @@ import { Client, type QueryParamsType } from '@hyper-fetch/core';
 import config from '../../config';
 import { authRequests } from './auth';
 import { authService } from '../../services';
+import { onLoginFailed, store } from '../../store';
 
 // Create Hyperfetch client
 export const client = new Client({
@@ -61,8 +62,7 @@ client.onResponse(async (response, request) => {
         return request.send();
       } else {
 
-        // clear auth on failed refresh token reload
-        authService.clearAuth();
+        store.dispatch(onLoginFailed('Session expired. Please log in again.'));
         return response;
       }
     }

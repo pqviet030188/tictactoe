@@ -23,7 +23,7 @@ public class RoomHubFilter : IHubFilter
         var methodInfo = context.HubMethod;
         if (methodInfo == null || methodInfo.GetCustomAttribute<UseRoomAuthorisationAttribute>() == null)
         {
-            return next(context);
+            return await next(context);
         }
 
         // 1) Prefer first argument if it implements IWithRoomMessage to obtain RoomId

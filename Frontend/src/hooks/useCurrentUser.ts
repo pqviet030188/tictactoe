@@ -1,33 +1,22 @@
 import { useEffect, useMemo } from 'react';
 import { useAppSelector, useAppDispatch } from '../store';
-import { selectCurrentUser, selectUserLoading, selectUserError, fetchUser } from '../store/userSlice';
+import { selectCurrentUser, selectUserLoading, selectUserError, loadUser } from '../store/userSlice';
 
 export const useCurrentUser = () => {
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector(selectCurrentUser);
   const isLoading = useAppSelector(selectUserLoading);
-  const error = useAppSelector(selectUserError);
-
-  // Determine if user is authenticated
-  const isAuthenticated = useMemo(()=>{
-
-    // when user is present and no error, then authenticated
-    return currentUser !== null && !!!error;
-  }, [currentUser, error]);
+  const error = useAppSelector(selectUserError)
 
   // Determine if we should load user
   const shouldLoadUser = useMemo(() => {
     return currentUser == null && !!!error;
   }, [currentUser, error]);
 
-  const shouldLogUserOff = useMemo(() => {
-    return !isAuthenticated && !!error;
-  }, [isAuthenticated, error]);
-
   // Load user effect first time
   useEffect(()=>{
     if (shouldLoadUser) {
-      dispatch(fetchUser());
+      dispatch(loadUser());
     }
   }, [shouldLoadUser]);
 
@@ -35,7 +24,5 @@ export const useCurrentUser = () => {
     currentUser,
     isLoading,
     error,
-    isAuthenticated,
-    shouldLogUserOff
   };
 };

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Tictactoe.DTOs;
 using Tictactoe.Extensions;
+using Tictactoe.Helpers;
 using Tictactoe.Types.Attributes;
 using Tictactoe.Types.Interfaces;
 
@@ -13,12 +14,14 @@ public class LobbyHub(IMatchRepository matchRepository): Hub, ILobbyHub
 
     public static string MatchNotificationGlobalGroup() => "matches";
 
+    private const int DefaultMatchLoadCount = 10;
+
     [UseAuthentication]
     public async Task<MatchResultsWithError> GetLatestMatches(MatchLoadingRequest request)
     {
         var userId = Context.User!.GetUserId();
         var latestMatchId = request.MatchId;
-        var matches = await matchRepository.GetLatestMatches(userId, latestMatchId!, 10, Context.ConnectionAborted);
+        var matches = await matchRepository.GetLatestMatches(userId, latestMatchId!, DefaultMatchLoadCount, Context.ConnectionAborted);
         return new MatchResultsWithError()
         {
             Matches = matches,
@@ -31,7 +34,7 @@ public class LobbyHub(IMatchRepository matchRepository): Hub, ILobbyHub
     {
         var userId = Context.User!.GetUserId();
         var matchId = request.MatchId;
-        var matches = await matchRepository.GetOlderMatches(userId, matchId!, 10, Context.ConnectionAborted);
+        var matches = await matchRepository.GetOlderMatches(userId, matchId!, DefaultMatchLoadCount, Context.ConnectionAborted);
         return new MatchResultsWithError()
         {
             Matches = matches,
@@ -42,13 +45,14 @@ public class LobbyHub(IMatchRepository matchRepository): Hub, ILobbyHub
     [UseAuthentication]
     public async Task<MatchResultsWithError> JoinLobby()
     {
+        var userId = Context.User!.GetUserId();
         var globalRoomId = MatchNotificationGlobalGroup();
 
         // Join group or socket room 
         await Groups.AddToGroupAsync(Context.ConnectionId, globalRoomId, Context.ConnectionAborted);
         
         // return latest matches
-        var matches = await matchRepository.GetLatestMatches(null, null, 10, Context.ConnectionAborted);
+        var matches = await matchRepository.GetLatestMatches(userId, null, DefaultMatchLoadCount, Context.ConnectionAborted);
         return new MatchResultsWithError()
         {
             Matches = matches,
@@ -61,7 +65,7 @@ public class LobbyHub(IMatchRepository matchRepository): Hub, ILobbyHub
     {
         var globalRoomId = MatchNotificationGlobalGroup();
 
-        // Join group or socket room 
+        // Join group or socket room
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, globalRoomId, Context.ConnectionAborted);
 
         // returns no error
@@ -73,9 +77,12 @@ public class LobbyHub(IMatchRepository matchRepository): Hub, ILobbyHub
     {
         var userId = Context.User!.GetUserId();
 
-        var newMatch = await matchRepository.Create(userId, request.Name, request.Password, Context.ConnectionAborted);
+        // We don't take the room name from user for now to simplify things
+        var newMatchName = RoomEncodingHelper.GenerateId();
 
-        // Inform every one that a room is created
+        var newMatch = await matchRepository.Create(userId, newMatchName, request.Password, Context.ConnectionAborted);
+
+        // Inform everyone that a room is created
         var globalRoomId = MatchNotificationGlobalGroup();
         await Clients.Group(globalRoomId).SendAsync(MatchsCreatedEvent, new MatchResults()
         {

@@ -1,0 +1,198 @@
+/* CGame Component Styles */
+.cgame-container {
+  min-height: 100vh;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.cgame-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 600px;
+  margin: 0 auto 30px auto;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.welcome-message {
+  font-size: 24px;
+  color: #1a202c;
+  margin: 0;
+  font-weight: 600;
+}
+
+.leave-button {
+  background: #e53e3e;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.leave-button:hover {
+  background: #c53030;
+  transform: translateY(-1px);
+}
+
+.cgame-content {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.game-status {
+  padding: 16px 24px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+}
+
+.game-status.waiting {
+  background: #fef3c7;
+  color: #d97706;
+  border: 2px solid #fbbf24;
+}
+
+.game-status.my-turn {
+  background: #dcfce7;
+  color: #16a34a;
+  border: 2px solid #22c55e;
+  animation: pulse 2s infinite;
+}
+
+.game-status.opponent-turn {
+  background: #dbeafe;
+  color: #2563eb;
+  border: 2px solid #3b82f6;
+}
+
+.game-status.won {
+  background: #dcfce7;
+  color: #15803d;
+  border: 2px solid #16a34a;
+  animation: celebrate 1s ease-in-out;
+}
+
+.game-status.lost {
+  background: #fecaca;
+  color: #dc2626;
+  border: 2px solid #ef4444;
+}
+
+.game-status.draw {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 2px solid #9ca3af;
+}
+
+.game-info {
+  margin-bottom: 30px;
+}
+
+.game-info h3 {
+  color: white;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.tictactoe-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 300px;
+  margin: 0 auto;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.game-cell {
+  aspect-ratio: 1;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 32px;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-cell:hover:not(.filled):not(:disabled) {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  transform: scale(1.05);
+}
+
+.game-cell.filled {
+  background: #1e293b;
+  color: white;
+  cursor: not-allowed;
+}
+
+.game-cell:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes celebrate {
+  0%, 100% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.05) rotate(1deg);
+  }
+  75% {
+    transform: scale(1.05) rotate(-1deg);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .cgame-header {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+  
+  .welcome-message {
+    font-size: 20px;
+  }
+  
+  .game-status {
+    font-size: 16px;
+    padding: 12px 20px;
+  }
+  
+  .tictactoe-board {
+    max-width: 250px;
+  }
+  
+  .game-cell {
+    font-size: 24px;
+  }
+}

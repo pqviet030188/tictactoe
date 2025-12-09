@@ -1,14 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Tictactoe;
-using Tictactoe.Configurations.Options;
 using Tictactoe.DTOs;
 using Tictactoe.Models;
 using Tictactoe.Services;
@@ -18,287 +13,206 @@ using Tictactoe.Hubs;
 using MongoDB.Bson;
 using Tictactoe.Types.Options;
 using TictactoeTest.Helper;
+using Tictactoe.Types.Interfaces;
+using MongoDB.Driver;
 
 namespace TictactoeTest.Integration.Hub;
 
-public class RoomHubTests : IClassFixture<MongoFixture>
+public class CookieMessageHandler : DelegatingHandler
 {
-    // private readonly MongoFixture _mongo;
+    private readonly string _cookieValue;
 
-    // public RoomHubTests(MongoFixture mongo)
-    // {
-    //     _mongo = mongo;
-    // }
+    public CookieMessageHandler(HttpMessageHandler innerHandler, string cookieValue) : base(innerHandler)
+    {
+        _cookieValue = cookieValue;
+    }
 
-    // [Fact]
-    // public async Task RoomHub_EventDeliveredToGroupMembers()
-    // {
-    //     // Arrange - start factory with test jwt config and mongo fixture
-    //     var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-    //     {
-    //         builder.ConfigureServices(services =>
-    //         {
-    //             services.AddSingleton(_mongo.Client);
-    //             services.AddSingleton(_mongo.Database);
-    //         });
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        request.Headers.Add("Cookie", $"x-access-token={_cookieValue}");
+        return base.SendAsync(request, cancellationToken);
+    }
+}
 
-    //         builder.ConfigureAppConfiguration((context, conf) =>
-    //         {
-    //             var settings = new Dictionary<string, string?>
-    //             {
-    //                 ["Jwt:Key"] = "test_secret_key_for_integration_tests_12345",
-    //                 ["Jwt:Issuer"] = "test",
-    //                 ["Jwt:Audience"] = "test",
-    //                 ["Jwt:AccessTokenMinutes"] = "60",
-    //                 ["Jwt:RefreshTokenDays"] = "7",
-    //             };
+public class RoomHubTests : IClassFixture<MongoFixture>, IAsyncLifetime
+{
+    private readonly MongoFixture _mongo;
+    private readonly User _creator;
+    private readonly User _member;
+    private readonly Match _match;
+    private readonly IDatabaseCollection _collection;
+    private readonly HubConnection _creatorRoomHubClient;
+    private readonly HubConnection _memberRoomHubClient;
+    private readonly HubConnection _creatorLobbyHubClient;
+    private readonly HubConnection _memberLobbyHubClient;
 
-    //             conf.AddInMemoryCollection(settings);
-    //         });
-    //     });
+    public RoomHubTests(MongoFixture fixture)
+    {
+        _mongo = fixture;
 
-    //     var jwtOptions = new JwtOptions
-    //     {
-    //         Key = "test_secret_key_for_integration_tests_12345",
-    //         Issuer = "test",
-    //         Audience = "test",
-    //         AccessTokenMinutes = 60,
-    //         RefreshTokenDays = 7
-    //     };
+        var jwtOptions = new JwtOptions
+        {
+            Key = "ThisIsADevelopmentKeyForTictactoeApplication12345",
+            Issuer = "TictactoeIssuerDev",
+            Audience = "TictactoeAudienceDev",
+            AccessTokenMinutes = 60,
+            RefreshTokenDays = 7
+        };
 
-    //     var tokenService = new TokenService(Options.Create(jwtOptions));
+        // Arrange - start factory with test jwt config and mongo fixture
+        var database = fixture.Database;
+        _collection = new TestDatabaseCollection(database, Guid.NewGuid().ToString());
+        var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton(_mongo.Client);
+                services.AddSingleton(_mongo.Database);
 
-    //     var creator = new User
-    //     {
-    //         Id = ObjectId.GenerateNewId().ToString(),
-    //         Email = "creator@example.com",
-    //         HashedPassword = string.Empty,
-    //         Salt = string.Empty
-    //     };
+                services.AddSingleton<IDatabaseCollection>(_collection);
+            });
 
-    //     var creatorToken = tokenService.CreateAccessToken(creator);
+            builder.ConfigureAppConfiguration((context, conf) =>
+            {
+                var settings = new Dictionary<string, string?>
+                {
+                    ["Jwt:Key"] = jwtOptions.Key,
+                    ["Jwt:Issuer"] = jwtOptions.Issuer,
+                    ["Jwt:Audience"] = jwtOptions.Audience,
+                    ["Jwt:AccessTokenMinutes"] = jwtOptions.AccessTokenMinutes.ToString(),
+                    ["Jwt:RefreshTokenDays"] = jwtOptions.RefreshTokenDays.ToString(),
+                };
 
-    //     // Insert a match owned by creator
-    //     var match = new Match
-    //     {
-    //         Id = ObjectId.GenerateNewId().ToString(),
-    //         Name = "test-match",
-    //         CreatorId = creator.Id,
-    //         MemberId = null,
-    //         CreatorStatus = PlayerStatus.Left,
-    //         MemberStatus = PlayerStatus.Left,
-    //         CreatorMoves = 0,
-    //         MemberMoves = 0,
-    //         NextTurn = GameTurn.Creator,
-    //         CreatedAt = DateTime.UtcNow,
-    //         UpdatedAt = DateTime.UtcNow,
-    //         GameOutcome = GameOutcome.Going
-    //     };
+                conf.AddInMemoryCollection(settings);
+            });
+        });
 
-    //     await _mongo.Database.GetCollection<Match>("matches").InsertOneAsync(match);
+        var tokenService = new TokenService(Options.Create(jwtOptions));
+        _creator = new User
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            Email = "creator@example.com",
+            HashedPassword = string.Empty,
+            Salt = string.Empty
+        };
+        var creatorToken = tokenService.CreateAccessToken(_creator);
+        _creatorRoomHubClient = new HubConnectionBuilder()
+            .WithUrl(new Uri(factory.Server.BaseAddress, "/room"), options =>
+            {
+                options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
+                options.AccessTokenProvider = () => Task.FromResult<string?>(creatorToken);
+            })
+            .Build();
+        _creatorLobbyHubClient = new HubConnectionBuilder()
+            .WithUrl(new Uri(factory.Server.BaseAddress, "/lobby"), options =>
+            {
+                options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
+                options.AccessTokenProvider = () => Task.FromResult<string?>(creatorToken);
+            })
+            .Build();
 
+        _member = new User
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            Email = "member@example.com",
+            HashedPassword = string.Empty,
+            Salt = string.Empty
+        };
+        var memberToken = tokenService.CreateAccessToken(_member);
+        _memberRoomHubClient = new HubConnectionBuilder()
+            .WithUrl(new Uri(factory.Server.BaseAddress, "/room"), options =>
+            {
+                options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
+                options.AccessTokenProvider = () => Task.FromResult<string?>(memberToken);
+            })
+            .Build();
+        _memberLobbyHubClient = new HubConnectionBuilder()
+            .WithUrl(new Uri(factory.Server.BaseAddress, "/lobby"), options =>
+            {
+                options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
+                options.AccessTokenProvider = () => Task.FromResult<string?>(memberToken);
+            })
+            .Build();
 
-    //     // Build two connections that both act as the creator (so they can join)
-    //     var receiver = new HubConnectionBuilder()
-    //         .WithUrl(new Uri(factory.Server.BaseAddress, "/room"), options =>
-    //         {
-    //             options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
-    //             options.AccessTokenProvider = () => Task.FromResult<string?>(creatorToken);
-    //         })
-    //         .Build();
+        _match = new Match
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            Name = "test-match",
+            CreatorId = _creator.Id,
+            MemberId = null,
+            CreatorStatus = PlayerStatus.Left,
+            MemberStatus = PlayerStatus.Left,
+            CreatorMoves = 0,
+            MemberMoves = 0,
+            NextTurn = GameTurn.Creator,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            GameOutcome = GameOutcome.Going
+        };
+    }
 
-    //     var actor = new HubConnectionBuilder()
-    //         .WithUrl(new Uri(factory.Server.BaseAddress, "/room"), options =>
-    //         {
-    //             options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
-    //             options.AccessTokenProvider = () => Task.FromResult<string?>(creatorToken);
-    //         })
-    //         .Build();
+    public async Task InitializeAsync()
+    {
+        await _collection.Matches.InsertOneAsync(_match);
+        await _creatorRoomHubClient.StartAsync();
+        await _creatorLobbyHubClient.StartAsync();
+        await _memberRoomHubClient.StartAsync();
+        await _memberLobbyHubClient.StartAsync();
+    }
 
-    //     await receiver.StartAsync();
-    //     await actor.StartAsync();
+    public async Task DisposeAsync()
+    {
+        await _creatorRoomHubClient.DisposeAsync();
+        await _creatorLobbyHubClient.DisposeAsync();
+        await _memberRoomHubClient.DisposeAsync();
+        await _memberLobbyHubClient.DisposeAsync();
+    }
 
-    //     var tcs = new TaskCompletionSource<MatchResults?>();
-    //     receiver.On<MatchResults>(RoomHub.MatchUpdatedEvent, payload => tcs.TrySetResult(payload));
+    [Fact(Timeout = 60000)] 
+    public async Task JoinLobbyAndMakeMoves() {
+        var creatorMatchUpdate = new TaskCompletionSource<MatchResults?>();
+        var memberMatchUpdate = new TaskCompletionSource<MatchResults?>();
+        _creatorRoomHubClient.On<MatchResults>(RoomHub.MatchUpdatedEvent, payload => creatorMatchUpdate.TrySetResult(payload));
+        _memberRoomHubClient.On<MatchResults>(RoomHub.MatchUpdatedEvent, payload => memberMatchUpdate.TrySetResult(payload));
 
-    //     // Also create a Lobby client to assert lobby receives MatchesUpdatedEvent
-    //     var lobbyTcs = new TaskCompletionSource<MatchResults?>();
-    //     var lobbyReceiver = new HubConnectionBuilder()
-    //         .WithUrl(new Uri(factory.Server.BaseAddress, "/lobby"), options =>
-    //         {
-    //             options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
-    //             options.AccessTokenProvider = () => Task.FromResult<string?>(creatorToken);
-    //         })
-    //         .Build();
+        var ms = await _collection.Matches.Find(u => true).ToListAsync();
+        ms.Should().HaveCount(1);
 
-    //     await lobbyReceiver.StartAsync();
-    //     lobbyReceiver.On<MatchResults>(LobbyHub.MatchesUpdatedEvent, payload => lobbyTcs.TrySetResult(payload));
+        // join lobby should receive receive rooms
+        var joinLobbyResp = await _creatorLobbyHubClient.InvokeAsync<MatchResultsWithError>("JoinLobby");
+        joinLobbyResp.Should().NotBeNull();
+        joinLobbyResp.Matches.Count().Should().Be(1);
 
-    //     // Join the global lobby group so this client will receive lobby notifications
-    //     var joinLobbyResp = await lobbyReceiver.InvokeAsync<MatchResultsWithError>("JoinLobby", new RequestWithAuth() { AccessToken = creatorToken });
-    //     joinLobbyResp.Should().NotBeNull();
+        // creator joins a room
+        var joinResp = await _creatorRoomHubClient.InvokeAsync<RoomActivityUpdateResponse>("UpdateRoomActivity", new RoomActivityUpdateRequest
+        {
+            RoomId = _match.Id!,
+            RoomActivity = RoomActivity.JoinRoom
+        });
+        joinResp.Error.Should().BeNull();
 
-    //     // Receiver joins the room (adds to group)
-    //     var joinReq = new RoomActivityUpdateRequest
-    //     {
-    //         RoomId = match.Id,
-    //         RoomActivity = RoomActivity.JoinRoom,
-    //         AccessToken = creatorToken
-    //     };
+        // member joins a room
+        joinResp = await _memberRoomHubClient.InvokeAsync<RoomActivityUpdateResponse>("UpdateRoomActivity", new RoomActivityUpdateRequest
+        {
+            RoomId = _match.Id!,
+            RoomActivity = RoomActivity.JoinRoom
+        });
+        joinResp.Error.Should().BeNull();
 
-    //     var joinResp = await receiver.InvokeAsync<RoomActivityUpdateResponse>("UpdateRoomActivity", joinReq);
-    //     joinResp.Error.Should().BeNull();
+        // creator makes a move
+        var makeMove = await _creatorRoomHubClient.InvokeAsync<RoomActivityUpdateResponse>("UpdateRoomActivity", new RoomActivityUpdateRequest
+        {
+            RoomId = _match.Id!,
+            RoomActivity = RoomActivity.MakeMove,
+            Move = 1
+        });
+        makeMove.Error.Should().BeNull();
 
-    //     // Actor makes a move to trigger group notification
-    //     var moveReq = new RoomActivityUpdateRequest
-    //     {
-    //         RoomId = match.Id,
-    //         RoomActivity = RoomActivity.MakeMove,
-    //         Move = 1,
-    //         AccessToken = creatorToken
-    //     };
-
-    //     var actorResp = await actor.InvokeAsync<RoomActivityUpdateResponse>("UpdateRoomActivity", moveReq);
-    //     actorResp.Error.Should().BeNull();
-
-    //     // Wait for event
-    //     var completed = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(5)));
-    //     completed.Should().BeSameAs(tcs.Task);
-    //     var eventPayload = await tcs.Task;
-    //     eventPayload.Should().NotBeNull();
-    //     eventPayload!.Matches.Should().ContainSingle(m => m.Id == match.Id);
-
-    //     await receiver.DisposeAsync();
-    //     await actor.DisposeAsync();
-    // }
-
-    // [Fact]
-    // public async Task UpdateRoomActivity_WithValidToken_ReturnsInvalidMatchOperation()
-    // {
-    //     // Arrange - create factory with test Jwt options and replace Mongo services with in-memory test fixture
-    //     var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-    //     {
-    //         builder.ConfigureServices(services =>
-    //         {
-    //             // Use the Mongo2Go client & database from fixture
-    //             services.AddSingleton(_mongo.Client);
-    //             services.AddSingleton(_mongo.Database);
-    //         });
-
-    //         builder.ConfigureAppConfiguration((context, conf) =>
-    //         {
-    //             var settings = new Dictionary<string, string?>
-    //             {
-    //                 ["Jwt:Key"] = "test_secret_key_for_integration_tests_12345",
-    //                 ["Jwt:Issuer"] = "test",
-    //                 ["Jwt:Audience"] = "test",
-    //                 ["Jwt:AccessTokenMinutes"] = "60",
-    //                 ["Jwt:RefreshTokenDays"] = "7",
-    //             };
-
-    //             conf.AddInMemoryCollection(settings);
-    //         });
-    //     });
-
-    //     var jwtOptions = new JwtOptions
-    //     {
-    //         Key = "test_secret_key_for_integration_tests_12345",
-    //         Issuer = "test",
-    //         Audience = "test",
-    //         AccessTokenMinutes = 60,
-    //         RefreshTokenDays = 7
-    //     };
-
-    //     var tokenService = new TokenService(Options.Create(jwtOptions));
-
-    //     var user = new User
-    //     {
-    //         Id = ObjectId.GenerateNewId().ToString(),
-    //         Email = "test@example.com",
-    //         HashedPassword = string.Empty,
-    //         Salt = string.Empty
-    //     };
-
-    //     var accessToken = tokenService.CreateAccessToken(user);
-
-    //     // Build Hub connection with AccessTokenProvider to put token into the Authorisation header/negotiate
-    //     var connection = new HubConnectionBuilder()
-    //         .WithUrl(new Uri(factory.Server.BaseAddress, "/room"), options =>
-    //         {
-    //              options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
-    //              options.AccessTokenProvider = () => Task.FromResult<string?>(accessToken);
-    //         })
-    //         .Build();
-
-    //     await connection.StartAsync();
-
-    //     var request = new RoomActivityUpdateRequest
-    //     {
-    //         RoomId = "nonexistent-room",
-    //             RoomActivity = RoomActivity.JoinRoom,
-    //         AccessToken = accessToken
-    //     };
-
-    //     // Act
-    //     var response = await connection.InvokeAsync<RoomActivityUpdateResponse>("UpdateRoomActivity", request);
-
-    //     // Assert - authenticated but no such match -> InvalidMatchOperation error
-    //     response.Should().NotBeNull();
-    //     response.Error.Should().NotBeNull();
-    //     response.Error!.ErrorCode.Should().Be("INVALID_MATCH_OPERATION");
-
-    //     await connection.DisposeAsync();
-    // }
-
-    // [Fact]
-    // public async Task UpdateRoomActivity_WithoutTokenInHeader_ButEmptyAccessTokenInPayload_ReturnsAuthError()
-    // {
-    //     var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-    //     {
-    //         builder.ConfigureServices(services =>
-    //         {
-    //             services.AddSingleton(_mongo.Client);
-    //             services.AddSingleton(_mongo.Database);
-    //         });
-
-    //         builder.ConfigureAppConfiguration((context, conf) =>
-    //         {
-    //             var settings = new Dictionary<string, string?>
-    //             {
-    //                 ["Jwt:Key"] = "test_secret_key_for_integration_tests_12345",
-    //                 ["Jwt:Issuer"] = "test",
-    //                 ["Jwt:Audience"] = "test",
-    //                 ["Jwt:AccessTokenMinutes"] = "60",
-    //                 ["Jwt:RefreshTokenDays"] = "7",
-    //             };
-
-    //             conf.AddInMemoryCollection(settings);
-    //         });
-    //     });
-
-    //     // Build connection WITHOUT AccessTokenProvider (no header)
-    //     var connection = new HubConnectionBuilder()
-    //         .WithUrl(new Uri(factory.Server.BaseAddress, "/room"), options =>
-    //         {
-    //             options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
-    //         })
-    //         .Build();
-
-    //     await connection.StartAsync();
-
-    //     var request = new RoomActivityUpdateRequest
-    //     {
-    //         RoomId = "any-room",
-    //             RoomActivity = RoomActivity.JoinRoom,
-    //         AccessToken = string.Empty // explicit empty -> filter should create typed auth error
-    //     };
-
-    //     var response = await connection.InvokeAsync<RoomActivityUpdateResponse>("UpdateRoomActivity", request);
-
-    //     response.Should().NotBeNull();
-    //     response.Error.Should().NotBeNull();
-    //     response.Error!.ErrorCode.Should().Be("AUTHENTICATION_FAILED");
-
-    //     await connection.DisposeAsync();
-    // }
+        // assert the member received the update
+        var completed = await Task.WhenAny(memberMatchUpdate.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+        completed.Should().BeSameAs(memberMatchUpdate.Task);
+        var eventPayload = await memberMatchUpdate.Task;
+        eventPayload.Should().NotBeNull();
+        eventPayload!.Matches.Should().ContainSingle(m => m.Id == _match.Id);
+    }
 }

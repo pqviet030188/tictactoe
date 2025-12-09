@@ -7,33 +7,11 @@
 
 .game-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   max-width: 800px;
-  margin: 0 auto 40px auto;
+  margin: 0 auto 20px auto;
   padding: 20px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.welcome-message {
-  font-size: 24px;
-  color: #1a202c;
-  margin: 0;
-  font-weight: 600;
-}
-
-.logout-button {
-  background: #e53e3e;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.2s ease;
 }
 
 .logout-button:hover {
@@ -41,15 +19,43 @@
   transform: translateY(-1px);
 }
 
+.game-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.back-button {
+  background: #4a5568;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.back-button:hover {
+  background: #2d3748;
+  transform: translateY(-1px);
+}
+
 /* Responsive Design */
 @media (max-width: 480px) {
   .game-header {
-    flex-direction: column;
-    gap: 16px;
-    text-align: center;
+    padding: 10px;
   }
-  
-  .welcome-message {
-    font-size: 20px;
+
+  .game-content {
+    padding: 0 10px;
   }
+}
+
+.welcome-message {
+  font-size: 20px;
 }

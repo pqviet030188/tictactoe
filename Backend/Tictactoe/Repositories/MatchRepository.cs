@@ -6,7 +6,8 @@ using Tictactoe.Types.Enums;
 using Tictactoe.Types.Interfaces;
 
 namespace Tictactoe.Repositories;
-public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepository
+
+public class MatchRepository(IDatabaseCollection databaseCollection) : IMatchRepository
 {
     public async Task<Match?> GetById(string userId, string id, CancellationToken cancellationToken = default)
     {
@@ -14,90 +15,120 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
         return (match?.HashMember(userId) ?? false) ? match : null;
     }
 
+    public async Task<IEnumerable<Match>?> GetByConnectionId(string connectionId, CancellationToken cancellationToken = default)
+    {
+        var matches = await databaseCollection.Matches.Find(
+            u => u.CreatorConnectionId == connectionId 
+            || u.MemberConnectionId == connectionId).ToListAsync(cancellationToken);
+
+        return matches;
+    }
+
     public async Task<IEnumerable<Match>> GetLatestMatches(string? userId, string? lastMatchId, int limit, CancellationToken cancellationToken = default)
     {
         var filter = Builders<Match>.Filter;
-        FilterDefinition<Match> ffilter = null!;
 
-        if (string.IsNullOrWhiteSpace(userId) && string.IsNullOrWhiteSpace(lastMatchId))
-        {
-            // Query top latest ones     
-            ffilter = filter.Empty;
-        } 
-        else if (!string.IsNullOrWhiteSpace(userId) && string.IsNullOrWhiteSpace(lastMatchId))
-        {
-            // Query top latest ones of the user
-            ffilter = filter.And(
+        var openMatchesFilter = string.IsNullOrEmpty(userId) ?
+            filter.Eq(d => d.MemberId, null) :
+            filter.Or(
+                filter.Eq(d => d.MemberId, null),
                 filter.Or(
-                    filter.Eq(d=>d.CreatorId, userId),
-                    filter.Eq(d=>d.MemberId, userId)
+                    filter.And(
+                        filter.Eq(d => d.CreatorId, userId),
+                        filter.Eq(d => d.GameOutcome, GameOutcome.Going)
+                    ),
+                    filter.And(
+                        filter.Eq(d => d.MemberId, userId),
+                        filter.Eq(d => d.GameOutcome, GameOutcome.Going)
+                    )
                 )
-            );       
-        }
-        else if (!string.IsNullOrWhiteSpace(userId) && !string.IsNullOrWhiteSpace(lastMatchId))
+            );
+
+        if (!string.IsNullOrWhiteSpace(lastMatchId))
         {
             // Query top latest ones of the user from last match
-            ffilter = filter.And(
-                filter.Or(
-                    filter.Eq(d=>d.CreatorId, userId),
-                    filter.Eq(d=>d.MemberId, userId)
-                ),
-                filter.Gt(d=>d.Id, lastMatchId)
-            );  
-        }
-        else if (!string.IsNullOrWhiteSpace(lastMatchId) && string.IsNullOrWhiteSpace(userId))
-        {
-            // Query top latest
-            ffilter = filter.Gt(d=>d.Id, lastMatchId);
+            openMatchesFilter = filter.And(
+                openMatchesFilter,
+                filter.Gt(d => d.Id, lastMatchId)
+            );
         }
 
-        return await databaseCollection.Matches.Find(ffilter!)
-            .SortByDescending(d=>d.CreatedAt).Limit(limit).ToListAsync(cancellationToken);
+        return await databaseCollection.Matches.Find(openMatchesFilter)
+            .SortByDescending(d => d.CreatedAt).Limit(limit).ToListAsync(cancellationToken);
     }
 
     public async Task<IEnumerable<Match>> GetOlderMatches(string? userId, string recentOlderMatchId, int limit, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(recentOlderMatchId))
             return Enumerable.Empty<Match>();
-        
+
         var filter = Builders<Match>.Filter;
-        FilterDefinition<Match> ffilter = null!;
-
-        if (!string.IsNullOrWhiteSpace(userId))
-        {
-            
-            ffilter = filter.And(
+        var openMatchesFilter = string.IsNullOrEmpty(userId) ?
+            filter.Eq(d => d.MemberId, null) :
+            filter.Or(
+                filter.Eq(d => d.MemberId, null),
                 filter.Or(
-                    filter.Eq(d=>d.CreatorId, userId),
-                    filter.Eq(d=>d.MemberId, userId)
-                ),
-                filter.Lt(d=>d.Id, recentOlderMatchId)
-            );            
-        }
-        else
-        {
-             ffilter = filter.Lt(d=>d.Id, recentOlderMatchId);
-        }
+                    filter.And(
+                        filter.Eq(d => d.CreatorId, userId),
+                        filter.Eq(d => d.GameOutcome, GameOutcome.Going)
+                    ),
+                    filter.And(
+                        filter.Eq(d => d.MemberId, userId),
+                        filter.Eq(d => d.GameOutcome, GameOutcome.Going)
+                    )
+                )
+            );
 
-        return await databaseCollection.Matches.Find(ffilter!)
-            .SortByDescending(d=>d.CreatedAt).Limit(limit).ToListAsync(cancellationToken);
+        openMatchesFilter = filter.And(
+                openMatchesFilter,
+                filter.Lt(d => d.Id, recentOlderMatchId)
+            );
+
+        return await databaseCollection.Matches.Find(openMatchesFilter)
+            .SortByDescending(d => d.CreatedAt).Limit(limit).ToListAsync(cancellationToken);
     }
 
-    public async Task<Match> UpdatePlayer(string id, string userId, PlayerStatus status, CancellationToken cancellationToken = default)
+    public async Task<Match> UpdatePlayer(string id, string userId, string connectionId, PlayerStatus status, CancellationToken cancellationToken = default)
     {
-        var filter = Builders<Match>.Filter.And(
-            Builders<Match>.Filter.Eq(m => m.Id, id),
-            Builders<Match>.Filter.Or(
-                Builders<Match>.Filter.Eq(m => m.CreatorId, userId),
-                Builders<Match>.Filter.Eq(m => m.MemberId, userId),
-                // Builders<Match>.Filter.Eq(m => m.MemberMoves, 0)
-                Builders<Match>.Filter.And(
+        var mfilter = Builders<Match>.Filter;
+        var filter = mfilter.And(
+            mfilter.Eq(m => m.Id, id),
+
+            // Allow only if the user is creator or member, or if joining as member and there is no member yet
+            mfilter.Or(
+                mfilter.Eq(m => m.CreatorId, userId),
+                mfilter.Eq(m => m.MemberId, userId),
+                mfilter.And(
 
                     // Allow joining as member if there is no member yet
-                    Builders<Match>.Filter.Eq(m => m.MemberMoves, 0),
-                    Builders<Match>.Filter.Eq(m => m.MemberStatus, PlayerStatus.Left),
-                    Builders<Match>.Filter.Eq(m => m.MemberId, null)
+                    mfilter.Eq(m => m.MemberMoves, 0),
+                    mfilter.Eq(m => m.MemberStatus, PlayerStatus.Left),
+                    mfilter.Eq(m => m.MemberId, null)
                 )
+            ),
+
+            // If leaving, allow always. If joining, only allow if match is ongoing
+            status == PlayerStatus.Left ? mfilter.Or(
+                mfilter.Eq(m => m.CreatorId, userId),
+                mfilter.Eq(m => m.MemberId, userId)
+            ) : mfilter.Eq(m => m.GameOutcome, GameOutcome.Going),
+
+            // If leaving, allow if the connection ID matches
+            status == PlayerStatus.Left ? mfilter.Or(
+                mfilter.Eq(m => m.CreatorConnectionId, connectionId),
+                mfilter.Eq(m => m.MemberConnectionId, connectionId)
+            ) :
+            // If joining, allow if the player has left
+            mfilter.Or(
+                mfilter.And(
+                    mfilter.Eq(m => m.CreatorId, userId),
+                    mfilter.Eq(m => m.CreatorStatus, PlayerStatus.Left)
+                ),
+                mfilter.And(
+                    mfilter.Eq(m => m.MemberId, userId),
+                    mfilter.Eq(m => m.MemberStatus, PlayerStatus.Left)
+                ),
+                mfilter.Eq(m => m.MemberId, null)
             )
         );
 
@@ -105,6 +136,20 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
         {
             new BsonDocument("$set", new BsonDocument
             {
+                  { "creatorConnectionId", new BsonDocument("$cond", new BsonArray
+                      {
+                          new BsonDocument("$eq", new BsonArray { "$creatorId", new ObjectId(userId) }),
+                          connectionId,
+                          "$creatorConnectionId",
+                      })
+                  },
+                   { "memberConnectionId", new BsonDocument("$cond", new BsonArray
+                      {
+                          new BsonDocument("$eq", new BsonArray { "$creatorId", new ObjectId(userId) }),
+                          "$memberConnectionId",
+                          connectionId,
+                      })
+                  },
                   { "creatorStatus", new BsonDocument("$cond", new BsonArray
                       {
                           new BsonDocument("$eq", new BsonArray { "$creatorId", new ObjectId(userId) }),
@@ -144,13 +189,35 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
         return updatedMatch;
     }
 
-    public async Task<Match> UpdatePlayer(string id, string userId, uint playerMove, GameOutcome gameOutcome, CancellationToken cancellationToken = default)
+    public async Task<Match> UpdatePlayer(string id, string userId, string connectionId, uint playerMove, GameOutcome gameOutcome, CancellationToken cancellationToken = default)
     {
-        var filter = Builders<Match>.Filter.And(
-            Builders<Match>.Filter.Eq(m => m.Id, id),
-            Builders<Match>.Filter.Or(
-                Builders<Match>.Filter.Eq(m => m.CreatorId, userId),
-                Builders<Match>.Filter.Eq(m => m.MemberId, userId)
+        var mfilter = Builders<Match>.Filter;
+        var filter = mfilter.And(
+            mfilter.Eq(m => m.Id, id),
+
+            // Ensure the game is going
+            mfilter.Eq(m => m.GameOutcome, GameOutcome.Going),
+
+            // Ensure both players are set
+            mfilter.Not(mfilter.Eq(m => m.MemberId, null)),
+            mfilter.Not(mfilter.Eq(m => m.CreatorId, null)),
+
+            // Ensure it's the user's connection ID
+            mfilter.Or(
+                mfilter.Eq(m => m.CreatorConnectionId, connectionId),
+                mfilter.Eq(m => m.MemberConnectionId, connectionId)
+            ),
+
+            // Ensure it's the user's turn
+            mfilter.Or(
+                mfilter.And(
+                    mfilter.Eq(m => m.CreatorId, userId),
+                    mfilter.Eq(m => m.NextTurn, GameTurn.Creator)
+                ),
+                mfilter.And(
+                    mfilter.Eq(m => m.MemberId, userId),
+                    mfilter.Eq(m => m.NextTurn, GameTurn.Member)
+                )
             )
         );
 
@@ -201,9 +268,54 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
         return updatedMatch;
     }
 
+    public async Task<UpdateResult> LeaveMatches(string connectionId, CancellationToken cancellationToken = default)
+    {
+        var filter = Builders<Match>.Filter;
+        var leaveFilter = filter.Or(
+            filter.Eq(m => m.MemberConnectionId, connectionId),
+            filter.Eq(m => m.CreatorConnectionId, connectionId)
+        );
+
+        var pipeline = new[]
+        {
+            new BsonDocument("$set", new BsonDocument
+            {
+                { "creatorStatus", new BsonDocument("$cond", new BsonArray
+                    {
+                        new BsonDocument("$eq", new BsonArray { "$memberConnectionId", connectionId }),
+                        "$creatorStatus",
+                        PlayerStatus.Left,
+                    })
+                },
+                { "memberStatus", new BsonDocument("$cond", new BsonArray
+                    {
+                        new BsonDocument("$eq", new BsonArray { "$memberConnectionId", connectionId }),
+                        PlayerStatus.Left,
+                        "$memberStatus",
+                    })
+                },
+                { "updatedAt", DateTime.UtcNow }
+            })
+        };
+
+        var pipelineDef = PipelineDefinition<Match, Match>.Create(pipeline);
+
+        var updatedMatches = await databaseCollection.Matches.UpdateManyAsync(
+            leaveFilter,
+            Builders<Match>.Update.Pipeline(pipelineDef),
+            new UpdateOptions
+            {
+                IsUpsert = false,
+            },
+            cancellationToken
+        );
+
+        return updatedMatches;
+    }
+
     public async Task<Match> Create(string userId, string name, string? password, CancellationToken cancellationToken = default)
     {
-        var (hash, salt) = string.IsNullOrEmpty(password)? (null, null): PasswordHelper.HashPassword(password);
+        var (hash, salt) = string.IsNullOrEmpty(password) ? (null, null) : PasswordHelper.HashPassword(password);
         var match = new Match
         {
             Name = name,
@@ -215,7 +327,7 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
             MemberStatus = PlayerStatus.Left,
             CreatorMoves = 0,
             MemberMoves = 0,
-            NextTurn = new Random().NextDouble() > 0.5? GameTurn.Creator: GameTurn.Member,
+            NextTurn = new Random().NextDouble() > 0.5 ? GameTurn.Creator : GameTurn.Member,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
             GameOutcome = GameOutcome.Going,
@@ -233,7 +345,7 @@ public class MatchRepository(IDatabaseCollection databaseCollection): IMatchRepo
         {
             new BsonDocument("$set", new BsonDocument
             {
-                { 
+                {
                     "gameOutcome", gameOutcome
                 },
                 { "updatedAt", DateTime.UtcNow }

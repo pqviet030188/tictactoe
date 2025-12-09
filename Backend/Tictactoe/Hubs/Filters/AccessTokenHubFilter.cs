@@ -15,22 +15,22 @@ public class AccessTokenHubFilter : IHubFilter
         _jwtOptions = jwtOptions.Value;
     }
 
-    public ValueTask<object?> InvokeMethodAsync(HubInvocationContext context, Func<HubInvocationContext, ValueTask<object?>> next)
+    public async ValueTask<object?> InvokeMethodAsync(HubInvocationContext context, Func<HubInvocationContext, ValueTask<object?>> next)
     {
         // If the target method doesn't declare the attribute, do nothing here.
         var methodInfo = context.HubMethod;
         if (methodInfo == null || methodInfo.GetCustomAttribute<UseAuthenticationAttribute>() == null)
         {
-            return next(context);
+            return await next(context);
         }
 
         var user = context.Context.User;
         if (user == null || user.Identity == null || !user.Identity.IsAuthenticated)
         {
-            return ValueTask.FromResult<object?>(CreateAuthErrorOrThrow(methodInfo, "Authentication required but no valid user context found."));
+            return await ValueTask.FromResult<object?>(CreateAuthErrorOrThrow(methodInfo, "Authentication required but no valid user context found."));
         }
 
-        return next(context);
+        return await next(context);
     }
 
     // For connect/disconnect we don't need to change behavior here

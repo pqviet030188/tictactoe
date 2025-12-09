@@ -2,7 +2,7 @@ namespace Tictactoe.Types.Enums;
 
 public enum RoomActivity
 {
-    MakeMove,
+    MakeMove = 0,
     LeaveRoom,
     JoinRoom
 }

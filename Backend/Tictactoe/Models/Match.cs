@@ -29,6 +29,14 @@ public class Match
     [BsonRepresentation(BsonType.ObjectId)]
     public string CreatorId { get; set; } = null!;
 
+    [BsonElement("creatorConnectionId")]
+    [BsonRepresentation(BsonType.String)]
+    public string? CreatorConnectionId { get; set; } = null!;
+
+    [BsonElement("memberConnectionId")]
+    [BsonRepresentation(BsonType.String)]
+    public string? MemberConnectionId { get; set; } = null!;
+
     [BsonElement("memberId")]
     [BsonRepresentation(BsonType.ObjectId)]
     public string? MemberId { get; set; } = null!;

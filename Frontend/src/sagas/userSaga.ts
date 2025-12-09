@@ -1,30 +1,77 @@
-import { call, put, takeLatest, type CallEffect, type PutEffect } from "redux-saga/effects";
-import { fetchUserSuccess, fetchUserFailed } from "../store";
+import {
+  call,
+  put,
+  takeLatest,
+  type CallEffect,
+  type PutEffect,
+} from "redux-saga/effects";
+import {
+  onhUserLoaded,
+  onUserLoadingFailed,
+  loadUser,
+  loginRequest,
+  onLoginSuccess,
+  onLoginFailed,
+  logout,
+} from "../store/userSlice";
 import { authRequests } from "../api/requests";
 import type { RequestResponseType } from "@hyper-fetch/core";
+import type { AuthResponse, LoginRequest as LoginRequestPayload } from "../types";
+import { authService } from "../services";
+import type { PayloadAction } from "@reduxjs/toolkit";
 
 type UserRequest = typeof authRequests.user;
 type UserResponse = RequestResponseType<UserRequest>;
 
-function* fetchUserWorker(): Generator<
+type LoginRequest = typeof authRequests.login;
+type LoginResponse = RequestResponseType<LoginRequest>;
+
+function* genLogin(action: PayloadAction<LoginRequestPayload>): Generator {
+  try {
+    const response: LoginResponse = yield call(() =>
+      authRequests.login.send({ payload: action.payload })
+    );
+
+    if (response.success && response.data) {
+      yield put(onLoginSuccess(response.data));
+    }
+    else {
+      yield put(
+        onLoginFailed(response.error?.message ?? "Failed to login")
+      );
+    }
+  } catch (error) {
+    yield put(onLoginFailed((error as Error).message));
+  }
+}
+
+function* genLoadUser(): Generator<
   CallEffect<UserResponse> | PutEffect,
   void,
   UserResponse
 > {
   try {
-    const response: UserResponse = yield call(() => 
+    const response: UserResponse = yield call(() =>
       authRequests.user.send({ payload: {} })
     );
     if (response.success && response.data) {
-      yield put(fetchUserSuccess(response.data));
+      yield put(onhUserLoaded(response.data));
     } else {
-      yield put(fetchUserFailed(response.error?.message ?? 'Failed to fetch user'));
+      yield put(
+        onUserLoadingFailed(response.error?.message ?? "Failed to fetch user")
+      );
     }
   } catch (err) {
-    yield put(fetchUserFailed((err as Error).message));
+    yield put(onUserLoadingFailed((err as Error).message));
   }
 }
 
+function* genOnUserLoaded(): Generator {
+  yield put(onLoginSuccess());
+}
+
 export function* userSaga() {
-  yield takeLatest("user/fetchUser", fetchUserWorker);
+  yield takeLatest(loginRequest.type, genLogin);
+  yield takeLatest(loadUser.type, genLoadUser);
+  yield takeLatest(onhUserLoaded.type, genOnUserLoaded);
 }

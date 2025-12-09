@@ -9,6 +9,8 @@ using System.Text;
 using Tictactoe.Types.Options;
 using System.Reflection;
 using Semver;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 namespace Tictactoe;
 
 public class Program
@@ -30,6 +32,10 @@ public class Program
         builder.Services.AddControllers(options =>
         {
             options.ModelValidatorProviders.Clear();
+        }).AddJsonOptions(options =>
+        {
+            // camel case for properties
+            options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         })
         .ConfigureApiBehaviorOptions(options =>
         {
@@ -111,7 +117,7 @@ public class Program
                             context.Token = cookieToken;
                             return Task.CompletedTask;
                         }
-                     
+
                         return Task.CompletedTask;
                     }
                 };
@@ -120,7 +126,6 @@ public class Program
 
         if (migrate && mongoDbOptions != null)
         {
-            Console.WriteLine($"Migrating MongoDB migrations");
             MigrationRunner runner = new MigrationRunner(mongoDbOptions.ConnectionString);
             var task = runner
                 .RegisterLocator(
@@ -129,7 +134,6 @@ public class Program
                     )
                 ).RunAsync();
             task.Wait();
-            Console.WriteLine("Migration completed");
             return;
         }
 
@@ -145,7 +149,6 @@ public class Program
             
             foreach (var version in orderedVersions)
             {
-                Console.WriteLine($"Reverting MongoDB migrations to version {version}...");    
                 try {
                     var task = runner
                     .RegisterLocator(

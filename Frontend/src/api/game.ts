@@ -1,10 +1,9 @@
 import { createRequest } from './requests';
 import type { ComputeRequest, ComputeResponse } from '../types';
 
-// Game API functions
 export const gameApi = {
   async computeMove(data: ComputeRequest): Promise<ComputeResponse> {
-    const request = createRequest<ComputeRequest, ComputeResponse>('/Computation', 'POST');
+    const request = createRequest<ComputeRequest, ComputeResponse>('/Computation/nextmove', 'POST');
     request.setPayload(data);
     const response = await request.send({
       payload: data,

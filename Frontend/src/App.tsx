@@ -1,8 +1,22 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { Login, Register, Game, ProtectedRoute } from "./components";
-import "./App.css";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import {
+  Solo,
+  Login,
+  Register,
+  Game,
+  ProtectedRoute,
+  Lobby,
+  CMatch,
+} from "./components";
 import { store } from "./store";
 import { Provider } from "react-redux";
+
+import "./App.css";
 
 function App() {
   return (
@@ -20,6 +34,31 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/solo"
+              element={
+                <ProtectedRoute>
+                  <Solo />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lobby"
+              element={
+                <ProtectedRoute>
+                  <Lobby />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/match"
+              element={
+                <ProtectedRoute>
+                  <CMatch />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>
       </div>

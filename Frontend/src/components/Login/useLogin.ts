@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import type { LoginRequest } from "../../types";
 import { authService } from "../../services";
-import { authApi } from "../../api";
+import { loginRequest, store, useAppSelector } from "../../store";
 
 export const useLogin = () => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [apiError, setApiError] = useState<string>("");
   const navigate = useNavigate();
-
+  const loginState = useAppSelector(state => state.user.login);
+  const currentUser = useAppSelector(state => state.user.currentUser);
   const {
     register,
     handleSubmit,
@@ -17,13 +16,6 @@ export const useLogin = () => {
   } = useForm<LoginRequest>({
     mode: "onBlur",
   });
-
-  useEffect(() => {
-    // Redirect to game if token is found
-    if (authService.hasAccessToken()) {
-      navigate("/game");
-    }
-  }, [navigate]);
 
   const emailField = useMemo(() => {
     return register("email", {
@@ -46,22 +38,25 @@ export const useLogin = () => {
   }, []);
 
   const onSubmit = useCallback(async (data: LoginRequest) => {
-    setApiError("");
-    setIsSubmitting(true);
+    store.dispatch(loginRequest(data));
+  }, []);
 
-    try {
-      await authApi.login(data);
+  useEffect(()=>{
+    if (
+      // see if we can login
+      authService.hasAccessToken() || 
+      // or if we just logged in
+      loginState.success || 
+      // or if we already have a user
+      currentUser
+    ) {
       navigate("/game");
-    } catch (error) {
-      setApiError(error instanceof Error ? error.message : "Login failed");
-    } finally {
-      setIsSubmitting(false);
     }
-  }, [setApiError, setIsSubmitting, navigate]);
+  }, [loginState.success, currentUser, navigate]);
 
   return {
-    isSubmitting,
-    apiError,
+    isSubmitting: loginState.loading,
+    apiError: loginState.error,
     emailField,
     passwordField,
     errors,

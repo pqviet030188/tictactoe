@@ -47,18 +47,19 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
 
         var matchRepo = new MatchRepository(_collection);
         var lastMatchId = matches[0].Id;
+        
 
         var latestMatches = (await matchRepo.GetLatestMatches(userId, lastMatchId!, 10, CancellationToken.None)).ToList();
 
-        latestMatches.Should().HaveCount(2);
-        latestMatches[0].Should().BeEquivalentTo(matches[2], options => options
-            .Excluding(m => m.CreatedAt)
-            .Excluding(m => m.UpdatedAt)
-        );
-        latestMatches[1].Should().BeEquivalentTo(matches[1], options => options
-            .Excluding(m => m.CreatedAt)
-            .Excluding(m => m.UpdatedAt)
-        );
+        var cmatches = GetSearchingOpenMatches(userId, matches.Where(d => ObjectId.Parse(d.Id) > ObjectId.Parse(lastMatchId)));
+        latestMatches.Should().HaveCount(cmatches.Count);
+        for (var i = 0; i < cmatches.Count(); i++)
+        {
+            latestMatches[i].Should().BeEquivalentTo(cmatches[i], options => options
+                .Excluding(m => m.CreatedAt)
+                .Excluding(m => m.UpdatedAt)
+            );
+        }
     }
 
     [Fact]
@@ -100,15 +101,16 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
 
         var latestMatches = (await matchRepo.GetOlderMatches(userId, lastMatchId!, 10, CancellationToken.None)).ToList();
 
-        latestMatches.Should().HaveCount(2);
-        latestMatches[0].Should().BeEquivalentTo(matches[1], options => options
-            .Excluding(m => m.CreatedAt)
-            .Excluding(m => m.UpdatedAt)
-        );
-        latestMatches[1].Should().BeEquivalentTo(matches[0], options => options
-            .Excluding(m => m.CreatedAt)
-            .Excluding(m => m.UpdatedAt)
-        );
+        var cmatches = GetSearchingOpenMatches(userId, matches.Where(d => ObjectId.Parse(d.Id) < ObjectId.Parse(lastMatchId)));
+        latestMatches.Should().HaveCount(cmatches.Count);
+
+        for (var i = 0; i < cmatches.Count(); i++)
+        {
+            latestMatches[i].Should().BeEquivalentTo(cmatches[i], options => options
+                .Excluding(m => m.CreatedAt)
+                .Excluding(m => m.UpdatedAt)
+            );
+        }
     }
 
     public async Task<IEnumerable<Match>> SetupData(string userId, string otherUserId)
@@ -145,11 +147,8 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         var latestMatches = (await matchRepo.GetLatestMatches(userId, lastMatchId!, 10, CancellationToken.None)).ToList();
 
         // Assert
-        latestMatches.Should().HaveCount(10);
-        var cmatches = matches.Where(d=>
-            (d.CreatorId == userId || d.MemberId == userId)
-            && ObjectId.Parse(d.Id) > ObjectId.Parse(lastMatchId))
-            .OrderByDescending(d=>d.CreatedAt).Take(10).ToList();
+        var cmatches = GetSearchingOpenMatches(userId, matches.Where(d => ObjectId.Parse(d.Id) > ObjectId.Parse(lastMatchId)));
+        latestMatches.Should().HaveCount(cmatches.Count);
 
         for(var i = 0; i < cmatches.Count(); i++)
         {
@@ -174,19 +173,28 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         var latestMatches = (await matchRepo.GetOlderMatches(userId, lastMatchId!, 10, CancellationToken.None)).ToList();
 
         // Assert
-        latestMatches.Should().HaveCount(10);
-        var cmatches = matches.Where(d=>
-            (d.CreatorId == userId || d.MemberId == userId)
-            && ObjectId.Parse(d.Id) < ObjectId.Parse(lastMatchId))
-            .OrderByDescending(d=>d.CreatedAt).Take(10).ToList();
+        var cmatches = GetSearchingOpenMatches(userId, matches.Where(d => ObjectId.Parse(d.Id) < ObjectId.Parse(lastMatchId)));
+        latestMatches.Should().HaveCount(cmatches.Count);
 
-        for(var i = 0; i < cmatches.Count(); i++)
+        for (var i = 0; i < cmatches.Count(); i++)
         {
             latestMatches[i].Should().BeEquivalentTo(cmatches[i], options => options
                 .Excluding(m => m.CreatedAt)
                 .Excluding(m => m.UpdatedAt)
             );
         }
+    }
+
+    private IList<Match> GetSearchingOpenMatches(string? userId, IEnumerable<Match> matches)
+    {
+        var cmatches = string.IsNullOrWhiteSpace(userId) ? matches.Where(d => d.MemberId == null) :
+            matches.Where(d => d.MemberId == null || (
+                (d.CreatorId == userId && d.GameOutcome == GameOutcome.Going)
+                ||
+                (d.MemberId == userId && d.GameOutcome == GameOutcome.Going)
+            ));
+
+        return cmatches.OrderByDescending(d => d.CreatedAt).Take(10).ToList();
     }
 
     [Fact]
@@ -203,9 +211,8 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         var latestMatches = (await matchRepo.GetLatestMatches(null, null, 10, CancellationToken.None)).ToList();
 
         // Assert
-        latestMatches.Should().HaveCount(10);
-        var cmatches = matches
-            .OrderByDescending(d=>d.CreatedAt).Take(10).ToList();
+        var cmatches = GetSearchingOpenMatches(null, matches);
+        latestMatches.Should().HaveCount(cmatches.Count);
 
         for (var i = 0; i < cmatches.Count(); i++)
         {
@@ -230,11 +237,8 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         var latestMatches = (await matchRepo.GetLatestMatches(null, lastMatchId, 10, CancellationToken.None)).ToList();
 
         // Assert
-        latestMatches.Should().HaveCount(10);
-        var cmatches = matches
-            .Where(d=>ObjectId.Parse(d.Id) > ObjectId.Parse(lastMatchId))
-            .OrderByDescending(d=>d.CreatedAt).Take(10).ToList();
-
+        var cmatches = GetSearchingOpenMatches(null, matches.Where(d => ObjectId.Parse(d.Id) > ObjectId.Parse(lastMatchId)));
+        latestMatches.Should().HaveCount(cmatches.Count);
         for (var i = 0; i < cmatches.Count(); i++)
         {
             latestMatches[i].Should().BeEquivalentTo(cmatches[i], options => options
@@ -258,10 +262,8 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         var latestMatches = (await matchRepo.GetOlderMatches(null, lastMatchId!, 10, CancellationToken.None)).ToList();
 
         // Assert
-        latestMatches.Should().HaveCount(10);
-        var cmatches = matches
-            .Where(d=>ObjectId.Parse(d.Id) < ObjectId.Parse(lastMatchId))
-            .OrderByDescending(d=>d.CreatedAt).Take(10).ToList();
+        var cmatches = GetSearchingOpenMatches(null, matches.Where(d => ObjectId.Parse(d.Id) < ObjectId.Parse(lastMatchId)));
+        latestMatches.Should().HaveCount(cmatches.Count);
 
         for (var i = 0; i < cmatches.Count(); i++)
         {
@@ -286,10 +288,9 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         var latestMatches = (await matchRepo.GetLatestMatches(userId, null, 10, CancellationToken.None)).ToList();
 
         // Assert
-        latestMatches.Should().HaveCount(10);
-        var cmatches = matches.Where(d=>d.CreatorId == userId || d.MemberId == userId)
-            .OrderByDescending(d=>d.CreatedAt).Take(10).ToList();
-            
+        var cmatches = GetSearchingOpenMatches(userId, matches);
+        latestMatches.Should().HaveCount(cmatches.Count);
+
         for (var i = 0; i < cmatches.Count(); i++)
         {
             latestMatches[i].Should().BeEquivalentTo(cmatches[i], options => options
@@ -305,6 +306,8 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         // Arrange
         var creatorId = ObjectId.GenerateNewId().ToString();
         var memberId = ObjectId.GenerateNewId().ToString();
+        var creatorConnectionId = "1";
+        var memberConnectionId = "2";
 
         var match = new Match
         {
@@ -320,7 +323,7 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         var matchRepo = new MatchRepository(_collection);
 
         // Act - update creator status
-        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, creatorId, PlayerStatus.Joined);
+        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, creatorId, creatorConnectionId, PlayerStatus.Joined);
 
         // Assert - only creatorStatus should change
         updatedMatchCreator.CreatorStatus.Should().Be(PlayerStatus.Joined);
@@ -329,11 +332,11 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         updatedMatchCreator.MemberId.Should().Be(memberId);
 
         // Act - update member status
-        var updatedMatchMember = await matchRepo.UpdatePlayer(match.Id, memberId, PlayerStatus.Left);
+        var updatedMatchMember = await matchRepo.UpdatePlayer(match.Id, memberId, memberConnectionId, PlayerStatus.Joined);
 
         // Assert - only memberStatus should change
         updatedMatchMember.CreatorStatus.Should().Be(PlayerStatus.Joined);
-        updatedMatchMember.MemberStatus.Should().Be(PlayerStatus.Left);
+        updatedMatchMember.MemberStatus.Should().Be(PlayerStatus.Joined);
         updatedMatchMember.CreatorId.Should().Be(creatorId);
         updatedMatchMember.MemberId.Should().Be(memberId);
     }
@@ -344,6 +347,8 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         // Arrange
         var creatorId = ObjectId.GenerateNewId().ToString();
         var memberId = ObjectId.GenerateNewId().ToString();
+        var creatorConnectionId = "1";
+        var memberConnectionId = "2";
 
         var match = new Match
         {
@@ -351,7 +356,10 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
             CreatorId = creatorId,
             CreatorStatus = PlayerStatus.Joined,
             MemberStatus = PlayerStatus.Left,
-            MemberMoves = 0
+            MemberMoves = 0,
+            CreatorConnectionId = creatorConnectionId,
+            MemberConnectionId = memberConnectionId,
+            GameOutcome = GameOutcome.Going
         };
 
         await _collection.Matches.InsertOneAsync(match);
@@ -359,7 +367,7 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         var matchRepo = new MatchRepository(_collection);
 
         // Act - update creator status
-        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, memberId, PlayerStatus.Joined);
+        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, memberId, memberConnectionId, PlayerStatus.Joined);
 
         // Assert - only creatorStatus should change
         updatedMatchCreator.CreatorStatus.Should().Be(PlayerStatus.Joined);
@@ -374,6 +382,7 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         // Arrange
         var creatorId = ObjectId.GenerateNewId().ToString();
         var memberId = ObjectId.GenerateNewId().ToString();
+        var memberConnectionId = "2";
 
         var match = new Match
         {
@@ -389,7 +398,7 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         var matchRepo = new MatchRepository(_collection);
 
         // Act - update creator status
-        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, memberId, PlayerStatus.Joined);
+        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, memberId, memberConnectionId, PlayerStatus.Joined);
 
         // Assert
         updatedMatchCreator.Should().BeNull();
@@ -401,11 +410,15 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         // Arrange
         var creatorId = ObjectId.GenerateNewId().ToString();
         var memberId = ObjectId.GenerateNewId().ToString();
+        var creatorConnectionId = "1";
+        var memberConnectionId = "2";
 
         var match = new Match
         {
             Id = ObjectId.GenerateNewId().ToString(),
             CreatorId = creatorId,
+            CreatorConnectionId = creatorConnectionId,
+            MemberConnectionId = memberConnectionId,
             MemberId = memberId,
             CreatorStatus = PlayerStatus.Left,
             MemberStatus = PlayerStatus.Left
@@ -416,7 +429,7 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         var matchRepo = new MatchRepository(_collection);
 
         // Act - update creator status with invalid user id
-        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, ObjectId.GenerateNewId().ToString(), PlayerStatus.Joined);
+        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, ObjectId.GenerateNewId().ToString(), creatorConnectionId, PlayerStatus.Joined);
 
         // Assert
         updatedMatchCreator.Should().BeNull();
@@ -428,6 +441,8 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         // Arrange
         var creatorId = ObjectId.GenerateNewId().ToString();
         var memberId = ObjectId.GenerateNewId().ToString();
+        var creatorConnectionId = "1";
+        var memberConnectionId = "2";
 
         var match = new Match
         {
@@ -437,6 +452,8 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
             CreatorStatus = PlayerStatus.Left,
             MemberStatus = PlayerStatus.Left,
             GameOutcome = GameOutcome.Going,
+            CreatorConnectionId = creatorConnectionId,
+            MemberConnectionId = memberConnectionId,
             CreatorMoves = 1,
             MemberMoves = 2,
         };
@@ -446,7 +463,7 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         var matchRepo = new MatchRepository(_collection);
 
         // Act - update creator moves
-        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, creatorId, 5, GameOutcome.Going);
+        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, creatorId, creatorConnectionId, 5, GameOutcome.Going);
 
         // Assert - only creatorMoves should change
         updatedMatchCreator.CreatorMoves.Should().Be(5);
@@ -455,7 +472,7 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         updatedMatchCreator.GameOutcome.Should().Be(GameOutcome.Going);
 
         // Act - update member moves
-        var updatedMatchMember = await matchRepo.UpdatePlayer(match.Id, memberId, 6, GameOutcome.CreatorWin);
+        var updatedMatchMember = await matchRepo.UpdatePlayer(match.Id, memberId, memberConnectionId, 6, GameOutcome.CreatorWin);
 
         // Assert - only member moves should change
         updatedMatchMember.CreatorMoves.Should().Be(5);
@@ -470,6 +487,8 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         // Arrange
         var creatorId = ObjectId.GenerateNewId().ToString();
         var memberId = ObjectId.GenerateNewId().ToString();
+        var creatorConnectionId = "1";
+        var memberConnectionId = "2";
 
         var match = new Match
         {
@@ -485,7 +504,7 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
         var matchRepo = new MatchRepository(_collection);
 
         // Act - update creator moves with invalid user id
-        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, ObjectId.GenerateNewId().ToString(), 2, GameOutcome.PlayerWin);
+        var updatedMatchCreator = await matchRepo.UpdatePlayer(match.Id, ObjectId.GenerateNewId().ToString(), creatorConnectionId, 2, GameOutcome.PlayerWin);
 
         // Assert
         updatedMatchCreator.Should().BeNull();
@@ -547,5 +566,54 @@ public class MatchRepositoryTests: IClassFixture<MongoFixture>
 
         // Assert
         updatedMatchCreator.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task LeaveMatches_ShouldBeCorrect()
+    {
+        // Arrange
+        var creatorId = ObjectId.GenerateNewId().ToString();
+        var memberId = ObjectId.GenerateNewId().ToString();
+        var memberConnectionId = "m";
+        var creatorConnectionId = "c";
+        var matches = new List<Match>
+        {
+            new Match {
+            Id = ObjectId.GenerateNewId().ToString(),
+            CreatorId = creatorId,
+            MemberId = memberId,
+            CreatorStatus = PlayerStatus.Joined,
+            MemberStatus = PlayerStatus.Joined,
+            CreatorMoves = 1,
+            MemberMoves = 2,
+            MemberConnectionId = memberConnectionId,
+            CreatorConnectionId = creatorConnectionId,
+            },
+            new Match {
+            Id = ObjectId.GenerateNewId().ToString(),
+            CreatorId = ObjectId.GenerateNewId().ToString(),
+            MemberId = memberId,
+            CreatorStatus = PlayerStatus.Joined,
+            MemberStatus = PlayerStatus.Joined,
+            CreatorMoves = 1,
+            MemberMoves = 2,
+            MemberConnectionId = memberConnectionId,
+            CreatorConnectionId = "C2",
+            }
+        };
+
+        await _collection.Matches.InsertManyAsync(matches);
+
+        var matchRepo = new MatchRepository(_collection);
+
+        // Act 
+        await matchRepo.LeaveMatches(creatorConnectionId);
+
+        var allMatches = await _collection.Matches.FindSync(Builders<Match>.Filter.Empty).ToListAsync();
+        allMatches
+            .Where(d => d.CreatorConnectionId == creatorConnectionId || d.MemberConnectionId == creatorConnectionId)
+            .All(d => d.CreatorConnectionId == creatorConnectionId ? d.CreatorStatus == PlayerStatus.Left :
+                    d.MemberConnectionId == creatorConnectionId ? d.MemberStatus == PlayerStatus.Left : false
+                ).Should().BeTrue();
     }
 }

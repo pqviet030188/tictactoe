@@ -8,20 +8,24 @@ using Tictactoe.Types.Attributes;
 
 namespace Tictactoe.Hubs;
 
-public class RoomHub(IMatchRepository matchRepository) : Hub, IRoomHub
+public class RoomHub(IMatchRepository matchRepository,
+ILogger<RoomHub> logger,
+IHubContext<LobbyHub> lobbyHubContext) : Hub, IRoomHub
 {
-    public static string UserJoinMatch = "UserJoinMatch";
     public static string MatchUpdatedEvent = "MatchUpdatedEvent";
 
     public static string MatchNotificationGroup(string matchId) => $"match_{matchId}";
 
     private async Task<RoomActivityUpdateResponse> UpdateRoomStatus(
-        string userId, string matchId, 
+        string userId, string matchId,
+        string connectionId,
         PlayerStatus status,
         CancellationToken cancellationToken = default)
     {
+        var tmatch = await matchRepository.GetById(matchId, cancellationToken);
+
         // Update status
-        var match = await matchRepository.UpdatePlayer(matchId, userId, status, cancellationToken);
+        var match = await matchRepository.UpdatePlayer(matchId, userId, connectionId, status, cancellationToken);
 
         if (match == null)
         {
@@ -53,11 +57,12 @@ public class RoomHub(IMatchRepository matchRepository) : Hub, IRoomHub
         });
 
         // Notify global lobby
-        await Clients.Group(globalRoomId).SendAsync(LobbyHub.MatchesUpdatedEvent, new MatchResults()
-        {
-            Matches = [match],
-            Count = 1
-        }, cancellationToken);
+        await lobbyHubContext.Clients.Group(globalRoomId).SendAsync(
+            LobbyHub.MatchesUpdatedEvent, new MatchResults()
+            {
+                Matches = [match],
+                Count = 1
+            }, cancellationToken);
 
         return new RoomActivityUpdateResponse()
         {
@@ -66,7 +71,7 @@ public class RoomHub(IMatchRepository matchRepository) : Hub, IRoomHub
     }
 
     private async Task<RoomActivityUpdateResponse> MakeMove(
-        string userId, string matchId, ushort move,
+        string userId, string matchId, string connectionId, ushort move,
         CancellationToken cancellationToken = default)
     {
         var match = await matchRepository.GetById(userId, matchId, cancellationToken);
@@ -80,8 +85,8 @@ public class RoomHub(IMatchRepository matchRepository) : Hub, IRoomHub
         }
 
         // Decide if win
-        var isCreator = match.CreatorId == userId? true: false;
-        var oppMoves = isCreator? match.MemberMoves: match.CreatorMoves;
+        var isCreator = match.CreatorId == userId ? true : false;
+        var oppMoves = isCreator ? match.MemberMoves : match.CreatorMoves;
 
         var win = move.Won(oppMoves);
 
@@ -89,10 +94,10 @@ public class RoomHub(IMatchRepository matchRepository) : Hub, IRoomHub
         var globalRoomId = LobbyHub.MatchNotificationGlobalGroup();
 
         // Update status
-        match = await matchRepository.UpdatePlayer(matchId, userId, move, 
-            win == 0? GameOutcome.Draw: 
-            win == 1? isCreator? GameOutcome.CreatorWin: GameOutcome.PlayerWin: 
-            win == -1? isCreator? GameOutcome.PlayerWin: GameOutcome.CreatorWin: GameOutcome.Going, 
+        match = await matchRepository.UpdatePlayer(matchId, userId, connectionId, move,
+            win == 0 ? GameOutcome.Draw :
+            win == 1 ? isCreator ? GameOutcome.CreatorWin : GameOutcome.PlayerWin :
+            win == -1 ? isCreator ? GameOutcome.PlayerWin : GameOutcome.CreatorWin : GameOutcome.Going,
             cancellationToken);
 
         // Notify local room
@@ -103,7 +108,7 @@ public class RoomHub(IMatchRepository matchRepository) : Hub, IRoomHub
         });
 
         // Notify global lobby
-        await Clients.Group(globalRoomId).SendAsync(LobbyHub.MatchesUpdatedEvent, new MatchResults()
+        await lobbyHubContext.Clients.Group(globalRoomId).SendAsync(LobbyHub.MatchesUpdatedEvent, new MatchResults()
         {
             Matches = [match],
             Count = 1
@@ -119,19 +124,31 @@ public class RoomHub(IMatchRepository matchRepository) : Hub, IRoomHub
     [UseRoomAuthorisation]
     public async Task<RoomActivityUpdateResponse> UpdateRoomActivity(RoomActivityUpdateRequest request)
     {
-        var userId = Context.User!.GetUserId();
+        var connectionId = Context.ConnectionId;
 
+        // Validate connection ID
+        if (string.IsNullOrWhiteSpace(connectionId))
+        {
+            return new RoomActivityUpdateResponse()
+            {
+                Match = null,
+                Error = RoomErrorCatalog.InvalidMatchOperation("Connection ID is missing.")
+            };
+        }
+
+        var userId = Context.User!.GetUserId();
         if (request.RoomActivity == RoomActivity.JoinRoom || request.RoomActivity == RoomActivity.LeaveRoom)
         {
-            return await UpdateRoomStatus(userId, request.RoomId, 
-                request.RoomActivity == RoomActivity.JoinRoom? PlayerStatus.Joined: PlayerStatus.Left,
+            return await UpdateRoomStatus(userId, request.RoomId, connectionId,
+                request.RoomActivity == RoomActivity.JoinRoom ?
+                PlayerStatus.Joined : PlayerStatus.Left,
                 Context.ConnectionAborted
             );
         }
 
         if (request.RoomActivity == RoomActivity.MakeMove && request.Move != null)
         {
-            return await MakeMove(userId, request.RoomId, request.Move.Value, Context.ConnectionAborted);
+            return await MakeMove(userId, request.RoomId, connectionId, request.Move.Value, Context.ConnectionAborted);
         }
 
         return new RoomActivityUpdateResponse()
@@ -139,5 +156,45 @@ public class RoomHub(IMatchRepository matchRepository) : Hub, IRoomHub
             Match = null,
             Error = RoomErrorCatalog.InvalidMatchOperation($"The activity kind is not enabled.")
         };
+    }
+
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        var globalRoomId = LobbyHub.MatchNotificationGlobalGroup();
+        var connectionId = Context.ConnectionId;
+
+        // Validate connection ID and capture required context before base call
+        if (!string.IsNullOrWhiteSpace(connectionId))
+        {
+            // Capture context variables 
+            var hubContext = lobbyHubContext;
+            var repository = matchRepository;
+
+            // Don't block disconnection process
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await repository.LeaveMatches(connectionId);
+                    var matches = await repository.GetByConnectionId(connectionId);
+
+                    if (matches?.Count() > 0)
+                    {
+                        await hubContext.Clients.Group(globalRoomId).SendAsync(
+                            LobbyHub.MatchesUpdatedEvent, new MatchResults()
+                            {
+                                Matches = matches,
+                                Count = matches.Count()
+                            });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "[RoomHub] Error during disconnect cleanup");
+                }
+            });
+        }
+
+        await base.OnDisconnectedAsync(exception);
     }
 }
