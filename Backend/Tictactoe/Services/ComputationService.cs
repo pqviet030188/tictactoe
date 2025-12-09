@@ -240,24 +240,20 @@ public class ComputationService : IComputationService
 {
     public (ushort, int) Handle(ushort playerMoves, ushort cpuMoves)
     {
-        // myMoves
+        var playerWon = playerMoves.Won((ushort)(cpuMoves));
+        if (playerWon == 1 || playerWon == -1 || playerWon == 0)
+        {
+            // results are determined 
+            return (0, playerWon);
+        }
+
+        // make moves
         var (cpuMove, cpuScore) = cpuMoves.Minimax(playerMoves);
-        if (cpuScore == -ComputationServiceExtension.WIN)
-        {
-            // cpu can't move, player wins
-            return (0, 1);
-        }
+        var afterCpuMovePlayerWon = playerMoves.Won((ushort)(cpuMoves | cpuMove));
 
-        if (cpuScore == ComputationServiceExtension.WIN)
+        if (afterCpuMovePlayerWon == 1 || afterCpuMovePlayerWon == -1 || afterCpuMovePlayerWon == 0)
         {
-            // cpu makes final move, player will lose
-            return (cpuMove, -1);
-        }
-
-        if (cpuMove == 0)
-        {
-            // draw, no possible moves
-            return (0, 0);
+            return (cpuMove, afterCpuMovePlayerWon);
         }
 
         return (cpuMove, 10);

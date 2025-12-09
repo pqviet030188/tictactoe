@@ -28,8 +28,10 @@ services:
       - "5000:5000"
     volumes:
       - ./Backend:/app
-      - /app/bin
-      - /app/obj
+      - /app/Tictactoe/bin
+      - /app/Tictactoe/obj
+      - /app/TictactoeTest/bin
+      - /app/TictactoeTest/obj
     environment:
       - ASPNETCORE_URLS=http://+:5000
       - Redis__ConnectionString=redis:6379,user=rex,password=rex112233
