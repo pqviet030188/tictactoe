@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  # client:
+  #   container_name: client
+  #   build:
+  #     context: ./Frontend
+  #     dockerfile: dev.Dockerfile
+  #   ports:
+  #     - "5173:5173"
+  #   volumes:
+  #     - ./Frontend:/app
+  #     - node_modules:/app/node_modules
+  #   environment:
+  #     - VITE_API_BASE_URL=http://localhost:5000
+  #     - VITE_APP_NAME=TicTacToe
+  #     - VITE_JWT_COOKIE_NAME=x-access-token
+  #     - VITE_REFRESH_COOKIE_NAME=x-refresh-token
+  #   depends_on:
+  #     - api
+
+  # api:
+  #   container_name: api
+  #   build:
+  #     context: ./Backend
+  #     dockerfile: dev.Dockerfile
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - ./Backend:/app
+  #     - /app/Tictactoe/bin
+  #     - /app/Tictactoe/obj
+  #     - /app/TictactoeTest/bin
+  #     - /app/TictactoeTest/obj
+  #   environment:
+  #     - ASPNETCORE_URLS=http://+:5000
+  #     - Redis__ConnectionString=redis:6379,user=rex,password=rex112233
+  #     - MongoDb__ConnectionString=mongodb://mongo:27017/Tictactoe
+  #   depends_on:
+  #     - mongo
+  #     - redis
+
+  redis:
+    image: redis:7
+    container_name: ttt-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+
+  redisinsight:
+    image: redislabs/redisinsight
+    container_name: ttt-redisinsight
+    ports:
+      - "8002:8001"
+      - "5540:5540"
+
+  mongo:
+    image: mongo:7
+    container_name: ttt-mongo
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: tictactoe
+
+volumes:
+  mongo_data:
+  node_modules:

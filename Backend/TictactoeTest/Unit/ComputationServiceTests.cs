@@ -121,7 +121,8 @@ public class ComputationServiceTests
         var cpuMove = (ushort)0x0100;
         var playerMove = (ushort)0x0048;
         var nextMove = svc.Handle(playerMove, cpuMove);
-        Assert.Equal(0x0001, nextMove.Item2);
+        Assert.Equal(0x0001, nextMove.Item1);
+        Assert.Equal(0b1010, nextMove.Item2);
     }
 
     [Fact]

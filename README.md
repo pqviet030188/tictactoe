@@ -77,17 +77,76 @@ Built with **React + TypeScript (Vite)** on the frontend and **.NET 8 + SignalR*
 - **Node.js** 18+ and npm (optional, for local development)
 - **.NET 8 SDK** (optional, for local development)
 
-### 🚀 Quick Start with Docker (Recommended)
+---
 
-The easiest way to run the entire application:
+## 🐳 Docker Compose Configurations
+
+This project includes two Docker Compose files for different purposes:
+
+### 1. `docker-compose-dev.yaml` – Full Development Environment
+
+**Use this for active development with hot reload:**
+
+```bash
+# Start all services (Frontend + Backend + MongoDB + Redis)
+docker-compose -f docker-compose-dev.yaml up --build
+```
+
+**Services included:**
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **client** | 5173 | Vite dev server with hot reload |
+| **api** | 5000 | .NET Web API with watch mode |
+| **mongo** | 27018 | MongoDB database |
+| **redis** | 6379 | Redis for SignalR backplane |
+| **redisinsight** | 5540 | Redis management UI |
+
+**Features:**
+- 🔥 Hot Module Replacement (HMR) for React
+- 🔄 .NET watch mode for automatic recompilation
+- 📦 Volume mounts for live code updates
+- 🐛 Full debugging support
+
+### 2. `docker-compose-integration-test.yaml` – Test Infrastructure Only
+
+**Use this for running integration tests locally:**
+
+```bash
+# Start only MongoDB & Redis (no frontend/backend)
+docker-compose -f docker-compose-integration-test.yaml up -d
+
+# Run backend tests
+cd Backend/TictactoeTest
+dotnet test
+```
+
+**Services included:**
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **mongo** | 27018 | MongoDB for tests |
+| **redis** | 6379 | Redis for SignalR tests |
+| **redisinsight** | 5540 | Redis management UI |
+
+**Why separate?**
+- Tests run the API in-memory using `WebApplicationFactory<Program>`
+- Only infrastructure (MongoDB/Redis) needs to be running
+- Faster test execution without Docker overhead for API
+
+---
+
+## 🚀 Quick Start Guide
+
+### For Development:
 
 ```bash
 # Clone the repository
 git clone https://github.com/pqviet030188/tictactoe.git
 cd tictactoe
 
-# Start all services (Frontend + Backend + MongoDB + Redis)
-docker-compose up --build
+# Start all development services
+docker-compose -f docker-compose-dev.yaml up --build
 ```
 
 **That's it!** The application will be available at:
@@ -95,16 +154,30 @@ docker-compose up --build
 - **Backend API**: http://localhost:5000
 - **RedisInsight**: http://localhost:5540
 
-### 🛠️ Alternative: Local Development (Without Docker)
+### For Integration Testing:
 
-If you prefer to run services locally:
-
-#### 1. Start Infrastructure (MongoDB & Redis)
 ```bash
-docker-compose up mongo redis -d
+# Start test infrastructure
+docker-compose -f docker-compose-integration-test.yaml up -d
+
+# Run tests in another terminal
+cd Backend/TictactoeTest
+dotnet test
+
+# Stop infrastructure when done
+docker-compose -f docker-compose-integration-test.yaml down
 ```
 
-#### 2. Start Backend
+### 🛠️ Alternative: Local Development (Without Docker)
+
+If you prefer to run services locally without Docker:
+
+#### 1. Start Infrastructure Only
+```bash
+docker-compose -f docker-compose-integration-test.yaml up -d
+```
+
+#### 2. Start Backend Locally
 ```bash
 cd Backend/Tictactoe
 dotnet restore
@@ -112,7 +185,7 @@ dotnet run
 ```
 Backend runs at `http://localhost:5000`
 
-#### 3. Start Frontend
+#### 3. Start Frontend Locally
 ```bash
 cd Frontend
 npm install
@@ -122,17 +195,33 @@ Frontend runs at `http://localhost:5173`
 
 ---
 
-## 🐳 Docker Services
+## 🔧 Docker Commands Reference
 
-When running `docker-compose up`, the following services start:
+```bash
+# Development - Start all services
+docker-compose -f docker-compose-dev.yaml up
 
-| Service | Port | Description |
-|---------|------|-------------|
-| **client** | 5173 | Vite dev server with hot reload |
-| **api** | 5000 | .NET Web API with watch mode |
-| **mongo** | 27018 | MongoDB database |
-| **redis** | 6379 | Redis for SignalR backplane |
-| **redisinsight** | 5540 | Redis management UI |
+# Development - Rebuild and start
+docker-compose -f docker-compose-dev.yaml up --build
+
+# Development - Start in background (detached)
+docker-compose -f docker-compose-dev.yaml up -d
+
+# Development - View logs
+docker-compose -f docker-compose-dev.yaml logs -f
+
+# Development - Stop all services
+docker-compose -f docker-compose-dev.yaml down
+
+# Testing - Start infrastructure only
+docker-compose -f docker-compose-integration-test.yaml up -d
+
+# Testing - Stop infrastructure
+docker-compose -f docker-compose-integration-test.yaml down
+
+# Remove all volumes (clean slate)
+docker-compose -f docker-compose-dev.yaml down -v
+```
 
 
 ## 🎮 How to Play
