@@ -6,6 +6,22 @@ Built with **React + TypeScript (Vite)** on the frontend and **.NET 8 + SignalR*
 
 ---
 
+## 📸 Screenshots
+
+### Game Menu
+![Game Menu](docs/screenshots/game-menu.png)
+*Main menu with options to play vs CPU or vs Player*
+
+### Match Lobby
+![Match Lobby](docs/screenshots/lobby.png)
+*Browse and join available multiplayer matches in real-time*
+
+### In-Game
+![In-Game](docs/screenshots/gameplay.png)
+*Live multiplayer gameplay with real-time move synchronization*
+
+---
+
 ## ✨ Features
 
 ### 🎯 Core Gameplay
