@@ -27,7 +27,9 @@ export const Board: FC<BoardProps> = ({
       const key = 1 << (BOARD_SIZE - index - 1);
       const newMove = key | myMove;
 
-      onMakeMove != null && onMakeMove(newMove);
+      if (onMakeMove != null) {
+        onMakeMove(newMove);
+      }
     },
     [myMove, onMakeMove]
   );
@@ -35,20 +37,22 @@ export const Board: FC<BoardProps> = ({
   const getCellValue = useCallback(
     (index: number): CellValue => {
       const key = 1 << (BOARD_SIZE - index - 1);
-      return (myMove & key) === key
-        ? myMoveDisplay
-        : (oppMove & key) === key
-        ? myMoveDisplay === "X" ? "O" : "X"
-        : null;
+      if ((myMove & key) === key) {
+        return myMoveDisplay;
+      }
+      if ((oppMove & key) === key) {
+        return myMoveDisplay === "X" ? "O" : "X";
+      }
+      return null;
     },
-    [myMove, oppMove]
+    [myMove, oppMove, myMoveDisplay]
   );
 
   const cellValues = useMemo(() => {
     return new Array(BOARD_SIZE).fill(0).map((_, index) => {
       return getCellValue(index);
     });
-  }, [BOARD_SIZE, getCellValue]);
+  }, [getCellValue]);
 
   return (
     <div className="tictactoe-board">

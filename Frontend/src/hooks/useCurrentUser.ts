@@ -10,7 +10,7 @@ export const useCurrentUser = () => {
 
   // Determine if we should load user
   const shouldLoadUser = useMemo(() => {
-    return currentUser == null && !!!error;
+    return currentUser == null && !error;
   }, [currentUser, error]);
 
   // Load user effect first time
@@ -18,7 +18,7 @@ export const useCurrentUser = () => {
     if (shouldLoadUser) {
       dispatch(loadUser());
     }
-  }, [shouldLoadUser]);
+  }, [shouldLoadUser, dispatch]);
 
   return {
     currentUser,

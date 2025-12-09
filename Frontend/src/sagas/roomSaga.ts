@@ -40,11 +40,7 @@ import { safeInvokeHubWithAuth, waitForHubConnected } from "./lobbySaga";
 const MatchUpdatedEvent = "MatchUpdatedEvent";
 const WsUpdateRoomActivity = "UpdateRoomActivity";
 
-function* createRoomMessageChannel(): Generator<
-  void,
-  EventChannel<ReturnType<typeof onCurrentMatchUpdatedEvent>>,
-  void
-> {
+function createRoomMessageChannel() {
   return eventChannel((emit) => {
     roomHub.on(MatchUpdatedEvent, (results: MatchResults) => {
       emit(onCurrentMatchUpdatedEvent(results));
@@ -58,7 +54,9 @@ function* createRoomMessageChannel(): Generator<
 
 function* genConnectHub(
   action: ReturnType<typeof connectRoomHub>
-): Generator<SelectEffect | PutEffect | CallEffect | ForkEffect | TakeEffect | CancelEffect, void, any> {
+): Generator<SelectEffect | PutEffect | CallEffect | ForkEffect | TakeEffect | CancelEffect, void, 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any> {
   const { matchId, sessionId } = action.payload;
   const currentMatch: Match | null = yield select(
     (state: ReturnType<typeof store.getState>) => state.match.currentMatch?.match
@@ -118,7 +116,8 @@ function* genConnectHub(
         sessionId,
         status: "connected",
       }));
-
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   yield take((x: any): x is ReturnType<typeof disconnectRoomHub> => {
     return (
       x.type === disconnectRoomHub.type &&
@@ -140,9 +139,9 @@ function* genConnectHub(
   );
 }
 
-function* genJoinRoom(action: ReturnType<typeof joinMatch>): Generator<CallEffect | PutEffect, void, any> {
+function* genJoinRoom(action: ReturnType<typeof joinMatch>): Generator<CallEffect | PutEffect, void, RoomActivityUpdateResponse> {
   try {
-      const result: WSInvokeOutput<RoomActivityUpdateResponse> = 
+      const result: RoomActivityUpdateResponse = 
       yield call(() => {
         return safeInvokeHubWithAuth<
           RoomActivityUpdateResponse
@@ -153,16 +152,16 @@ function* genJoinRoom(action: ReturnType<typeof joinMatch>): Generator<CallEffec
       });
   
       yield put(
-        onRoomActivityUpdated(result.result?.match)
+        onRoomActivityUpdated(result.match)
       );
     } catch (err) {
       yield put(matchError((err as Error).message));
     }
 }
 
-function* genLeaveRoom(action: ReturnType<typeof leaveMatch>): Generator<CallEffect | PutEffect, void, any> {
+function* genLeaveRoom(action: ReturnType<typeof leaveMatch>): Generator<CallEffect | PutEffect, void, RoomActivityUpdateResponse> {
   try {
-      const result: WSInvokeOutput<RoomActivityUpdateResponse> = 
+      const result: RoomActivityUpdateResponse = 
       yield call(() => {
         return safeInvokeHubWithAuth<
           RoomActivityUpdateResponse
@@ -173,16 +172,16 @@ function* genLeaveRoom(action: ReturnType<typeof leaveMatch>): Generator<CallEff
       });
   
       yield put(
-        onRoomActivityUpdated(result.result?.match)
+        onRoomActivityUpdated(result.match)
       );
     } catch (err) {
       yield put(matchError((err as Error).message));
     }
 }
 
-function* genMakeMove(action: ReturnType<typeof makeMove>): Generator<CallEffect | PutEffect, void, any> {
+function* genMakeMove(action: ReturnType<typeof makeMove>): Generator<CallEffect | PutEffect, void, RoomActivityUpdateResponse> {
   try {
-      const result: WSInvokeOutput<RoomActivityUpdateResponse> = 
+      const result: RoomActivityUpdateResponse = 
       yield call(() => {
         return safeInvokeHubWithAuth<
           RoomActivityUpdateResponse
@@ -194,7 +193,7 @@ function* genMakeMove(action: ReturnType<typeof makeMove>): Generator<CallEffect
       });
   
       yield put(
-        onRoomActivityUpdated(result.result?.match)
+        onRoomActivityUpdated(result.match)
       );
     } catch (err) {
       yield put(matchError((err as Error).message));
@@ -203,7 +202,10 @@ function* genMakeMove(action: ReturnType<typeof makeMove>): Generator<CallEffect
 
 function* genRoomHubStatusUpdate(
   action: ReturnType<typeof roomHubStatusUpdate>
-): Generator<any, void, any> {
+): Generator<SelectEffect | CallEffect | PutEffect, void, {
+    sessionId: string;
+    match: Match;
+  } | null> {
   const { matchId, sessionId, status } = action.payload;
   
   const currentMatch: {

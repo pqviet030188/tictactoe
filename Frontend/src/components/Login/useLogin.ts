@@ -25,7 +25,7 @@ export const useLogin = () => {
         message: "Please enter a valid email address",
       },
     });
-  }, []);
+  }, [register]);
 
   const passwordField = useMemo(() => {
     return register("password", {
@@ -35,7 +35,7 @@ export const useLogin = () => {
         message: "Password must be at least 6 characters",
       },
     });
-  }, []);
+  }, [register]);
 
   const onSubmit = useCallback(async (data: LoginRequest) => {
     store.dispatch(loginRequest(data));

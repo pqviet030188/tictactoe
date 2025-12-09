@@ -1,7 +1,6 @@
 import React, { useCallback } from "react";
 import { useCurrentUser } from "../../hooks";
 import "./GameMenu.css";
-import { useNavigate } from "react-router-dom";
 import { logout, store } from "../../store";
 
 interface GameMenuProps {
@@ -10,7 +9,6 @@ interface GameMenuProps {
 
 export const GameMenu: React.FC<GameMenuProps> = ({ onGameModeSelect }) => {
   const { currentUser } = useCurrentUser();
-  const navigate = useNavigate();
   
   const handleVsCPU = useCallback(() => {
     onGameModeSelect("vsCpu");
@@ -22,7 +20,7 @@ export const GameMenu: React.FC<GameMenuProps> = ({ onGameModeSelect }) => {
 
   const handleLogout = useCallback(() => {
     store.dispatch(logout());
-  }, [navigate]);
+  }, []);
 
   return (
     <div className="game-menu-container">

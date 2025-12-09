@@ -41,9 +41,11 @@ const canJoinMatch = (
   match: Match,
   owner: User | null | undefined
 ): boolean => {
+  console.log(match, owner, isGameOpened(match), isGameFinished(match));
   return (
     owner != null &&
-    (isGameOpened(match) ||
+    ((isGameOpened(match) &&
+      (owner.id != match.creatorId || match.creatorStatus == ePlayerStatus.Left)) ||
       (!isGameFinished(match) &&
         ((match.memberId == owner?.id &&
           match.memberStatus == ePlayerStatus.Left) ||

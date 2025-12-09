@@ -4,8 +4,8 @@ import {
   type WritableDraft,
 } from "@reduxjs/toolkit";
 import {
-  type Match,
   type CreateMatchRequest,
+  type Match,
   type MatchResults,
   type User,
   eGameOutcome,
@@ -79,12 +79,17 @@ export const matchSlice = createSlice({
   name: "match",
   initialState,
   reducers: {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     connectLobbyHub(_1, _2: PayloadAction<string>) {},
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     disconnectLobbyHub(_1, _2: PayloadAction<string>) {},
     hubConnected() {},
     joinLobby() {},
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     createMatch(_1, _2: PayloadAction<CreateMatchRequest>) {},
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     joinMatch(_1, _2: PayloadAction<string>) {},
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     leaveMatch(_1, _2: PayloadAction<string>) {},
     onMatchesCreated: updateMatchesAndPickTop10LatestUnfinishedOnes,
     onMatchesUpdated: updateMatchesAndPickTop10LatestUnfinishedOnes,
@@ -153,27 +158,35 @@ export const matchSlice = createSlice({
       }
     },
     disconnectRoomHub(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       _1,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       _2: PayloadAction<{
         matchId: string;
         sessionId: string;
       }>
     ) {},
     roomHubStatusUpdate(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       _1,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       _2: PayloadAction<{
         matchId: string;
         sessionId: string;
         status: "connected" | "disconnected";
       }>
     ) {},
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     joinGame(_1, _2: PayloadAction<string>) {},
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     leaveGame(_1, _2: PayloadAction<string>) {},
     makeMove(
       state,
       action: PayloadAction<{ matchId: string; move: number; userId: string }>
     ) {
-      if (!state.currentMatch?.match || !!!action.payload.userId) {
+      if (!state.currentMatch?.match || !action.payload.userId) {
         return;
       }
 
@@ -187,7 +200,7 @@ export const matchSlice = createSlice({
         state.currentMatch.match.memberMoves = action.payload.move;
         state.currentMatch.match.nextTurn = eGameTurn.Creator;
       }
-      
+
     },
     onCurrentMatchUpdatedEvent(state, action: PayloadAction<MatchResults>) {
       const match = action.payload.matches?.[0];

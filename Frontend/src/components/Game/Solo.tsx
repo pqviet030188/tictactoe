@@ -63,13 +63,13 @@ export const Solo: FC = () => {
 
   const onMoveClick = useCallback((move: number) => {
     update(move, oppMoves);
-  }, [nextTurn, myMoves, oppMoves, update]);
+  }, [oppMoves, update]);
 
   useEffect(() => {
     if (!user) {
       navigate("/game");
     }
-  }, [user]);
+  }, [user, navigate]);
 
   const onLeaveGame = useCallback(() => {
     navigate("/game");
@@ -97,7 +97,7 @@ export const Solo: FC = () => {
     }
 
     return "Opponent turn";
-  }, [nextTurn, user]);
+  }, [nextTurn, user, gameOutcome]);
 
   const getGameStatusClass = useMemo(() => {
     if (user == null) {
@@ -121,7 +121,7 @@ export const Solo: FC = () => {
     }
 
     return "opponent-turn";
-  }, [user]);
+  }, [user, gameOutcome, nextTurn]);
 
   const hasFinished = useMemo(()=>{
     return gameOutcome != eGameOutcome.Going;

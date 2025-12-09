@@ -18,6 +18,6 @@ export const authRequests = {
     '/auth/refresh',
     'POST'
   ),
-  user: createRequest<{}, User>('/auth/user', 'GET'),
-  logout: createRequest<{}, { message: string }>('/auth/logout', 'GET'),
+  user: createRequest<object, User>('/auth/user', 'GET'),
+  logout: createRequest<object, { message: string }>('/auth/logout', 'GET'),
 };

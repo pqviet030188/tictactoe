@@ -22,8 +22,6 @@ IHubContext<LobbyHub> lobbyHubContext) : Hub, IRoomHub
         PlayerStatus status,
         CancellationToken cancellationToken = default)
     {
-        var tmatch = await matchRepository.GetById(matchId, cancellationToken);
-
         // Update status
         var match = await matchRepository.UpdatePlayer(matchId, userId, connectionId, status, cancellationToken);
 

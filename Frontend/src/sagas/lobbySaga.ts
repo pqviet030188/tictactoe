@@ -48,13 +48,7 @@ const MatchesUpdatedEvent = "MatchesUpdated";
 const WsActionCreateRoom = "CreateRoom";
 const WsActionJoinLobby = "JoinLobby";
 
-function* createLobbyMessageChannel(): Generator<
-  void,
-  EventChannel<
-    ReturnType<typeof onMatchesCreated> | ReturnType<typeof onMatchesUpdated>
-  >,
-  void
-> {
+function createLobbyMessageChannel() {
   return eventChannel((emit) => {
     lobbyHub.on(MatchesCreatedEvent, (results: MatchResults) => {
       emit(onMatchesCreated(results));
@@ -89,10 +83,11 @@ function* genConnectHub(
   | PutEffect
   | ForkEffect
   | TakeEffect
-  | RaceEffect<any>
+  | RaceEffect<unknown>
   | CancelEffect
   | SelectEffect,
   void,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any
 > {
   if (lobbyHub.state === "Disconnected") {
@@ -143,6 +138,7 @@ function* genConnectHub(
 
   yield put(hubConnected());
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   yield take((x: any): x is ReturnType<typeof disconnectLobbyHub> => {
     return (
       x.type === disconnectLobbyHub.type &&
@@ -162,23 +158,31 @@ export function* safeInvokeHubWithAuth<
     };
   }
 >(
-    hub: HubConnection,
+  hub: HubConnection,
   method: string,
-  ...args: any[]
-): Generator<CallEffect | CallEffect<unknown>, WSInvokeOutput<T>, any> {
+  ...args: unknown[]
+): Generator<
+  CallEffect | CallEffect<unknown>,
+  T,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any
+> {
   try {
-    const result: WSInvokeOutput<T> = yield call(() =>
+    const result: T = yield call(() =>
       hub.invoke<T>(method, ...args)
     );
 
-    if (result.result?.error?.errorCode === "AUTH_FAILED") {
-      throw new Error(result.result?.error?.errorCode);
+    console.log(result);
+
+    if (result.error?.errorCode === "AUTH_FAILED") {
+      throw new Error(result.error?.errorCode);
     }
 
     return result;
   } catch (err) {
     if (err instanceof Error && err.message === "AUTH_FAILED") {
-      var rresponse: RequestResponseType<any> = yield call(() =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rresponse: RequestResponseType<any> = yield call(() =>
         authRequests.refreshToken.send({
           payload: {
             refreshToken: authService.getRefreshToken() ?? "",
@@ -190,7 +194,7 @@ export function* safeInvokeHubWithAuth<
         authService.clearAuth();
       }
 
-      const result: WSInvokeOutput<T> = yield call(() =>
+      const result: T = yield call(() =>
         hub.invoke<T>(method, ...args)
       );
       return result;
@@ -203,10 +207,16 @@ export function* safeInvokeHubWithAuth<
 function* genJoinLobbySaga(): Generator<
   CallEffect | PutEffect | SelectEffect,
   void,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any
 > {
   try {
-    const result = yield call(() => {
+    const result: MatchResults & {
+          error?: {
+            errorCode: string;
+            errorMessage: string;
+          };
+        } = yield call(() => {
       return safeInvokeHubWithAuth<
         MatchResults & {
           error?: {
@@ -223,7 +233,7 @@ function* genJoinLobbySaga(): Generator<
 
     yield put(
       loadLatestMatches({
-        ...(result.result ?? emptyMatchResults),
+        ...(result ?? emptyMatchResults),
         currentUser,
       })
     );
@@ -235,10 +245,16 @@ function* genJoinLobbySaga(): Generator<
 function* genCreateMatch(): Generator<
   CallEffect | PutEffect | SelectEffect,
   void,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any
 > {
   try {
-    const result: WSInvokeOutput<MatchResults> = yield call(() => {
+    const result: MatchResults & {
+          error?: {
+            errorCode: string;
+            errorMessage: string;
+          };
+        } = yield call(() => {
       return safeInvokeHubWithAuth<
         MatchResults & {
           error?: {
@@ -257,7 +273,7 @@ function* genCreateMatch(): Generator<
 
     yield put(
       onMatchesCreated({
-        ...(result.result ?? emptyMatchResults),
+        ...(result ?? emptyMatchResults),
         currentUser,
       })
     );
@@ -266,7 +282,7 @@ function* genCreateMatch(): Generator<
   }
 }
 
-function* genHubConnected(): Generator<any, void, unknown> {
+function* genHubConnected(): Generator<PutEffect, void, unknown> {
   yield put(joinLobby());
 }
 

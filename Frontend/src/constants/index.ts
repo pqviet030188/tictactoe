@@ -1,7 +1,7 @@
 import type { MatchResults } from "../types";
 
-const vemptyArray: any[] = [];
-const vemptyObject: any = {};
+const vemptyArray: null[] = [];
+const vemptyObject: null = null;
 
 export const emptyArray = <T>(): T[] => {
   return vemptyArray as T[];

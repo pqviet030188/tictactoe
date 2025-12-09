@@ -34,19 +34,19 @@ export const CMatch = () => {
         })
       );
     };
-  }, []);
+  }, [match?.id]);
 
   useEffect(() => {
     if (!user) {
       navigate("/game");
     }
-  }, [user]);
+  }, [user, navigate]);
 
   useEffect(() => {
     if (!match) {
       navigate("/lobby");
     }
-  }, [match]);
+  }, [match, navigate]);
 
   const onLeaveGame = useCallback(() => {
     navigate("/lobby");

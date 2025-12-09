@@ -71,7 +71,7 @@ client.onResponse(async (response, request) => {
 });
 
 
-type RequestParams<Req, Res, Q extends QueryParamsType | null = null, E = any> = {
+type RequestParams<Req, Res, Q extends QueryParamsType | null = null, E = unknown> = {
   response: Res;
   payload: Req;
   queryParams: Q;
@@ -80,10 +80,10 @@ type RequestParams<Req, Res, Q extends QueryParamsType | null = null, E = any> =
 
 // Create request factory with data support
 export const createRequest = <
-  Req = any,
-  Res = any,
+  Req = unknown,
+  Res = unknown,
   Q extends QueryParamsType | null = null,
-  E = any
+  E = { message: string } | null | undefined
 >(
   endpoint: string,
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' = 'GET'

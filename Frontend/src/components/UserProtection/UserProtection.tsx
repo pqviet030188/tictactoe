@@ -30,8 +30,9 @@ export const UserProtection: React.FC<UserProtectionProps> = ({
   }, [
     loginState.success,
     currentUserState.currentUser,
-    !!currentUserState.error,
+    currentUserState.error,
     navigate,
+    redirectTo
   ]);
 
   if (!currentUserState.currentUser) {

@@ -12,12 +12,10 @@ import {
   loginRequest,
   onLoginSuccess,
   onLoginFailed,
-  logout,
 } from "../store/userSlice";
 import { authRequests } from "../api/requests";
 import type { RequestResponseType } from "@hyper-fetch/core";
-import type { AuthResponse, LoginRequest as LoginRequestPayload } from "../types";
-import { authService } from "../services";
+import type { LoginRequest as LoginRequestPayload } from "../types";
 import type { PayloadAction } from "@reduxjs/toolkit";
 
 type UserRequest = typeof authRequests.user;

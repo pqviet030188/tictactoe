@@ -36,6 +36,7 @@ export const authApi = {
 
       return authData;
     } catch (error) {
+      console.log('Error refreshing token:', error);
       return null;
     }
   }

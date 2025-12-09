@@ -56,7 +56,6 @@ export const useRegister = () => {
       setIsSubmitting,
       navigate,
       setSuccessMessage,
-      setSuccessMessage,
     ]
   );
 

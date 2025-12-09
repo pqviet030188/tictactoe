@@ -64,6 +64,7 @@ export const userSlice = createSlice({
       state.loading = false;
       state.error = null;
     },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     logout(state, _2: PayloadAction<void>){
       state.currentUser = null;
       state.users = {};
@@ -77,6 +78,7 @@ export const userSlice = createSlice({
 
       authService.clearAuth();
     },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     loginRequest(state, _2: PayloadAction<LoginRequest>) {
       state.login.loading = true;
       state.login.error = null;
@@ -90,7 +92,9 @@ export const userSlice = createSlice({
       state.login.error = null;
       state.login.loading = false;
       state.login.success = true;
-      action.payload != null && authService.setAuth(action.payload);
+      if (action.payload != null) {
+        authService.setAuth(action.payload);
+      }
     },
     onLoginFailed(state, action: PayloadAction<string>) {
       state.currentUser = null;
