@@ -433,7 +433,7 @@ environment:
 
 ## 🙏 Acknowledgments
 
-- Built as a learning project for real-time web applications
+- Built as a demo project for real-time web applications
 - Demonstrates modern full-stack architecture patterns
 - SignalR for efficient real-time communication
 - Redux Saga for complex async workflows
