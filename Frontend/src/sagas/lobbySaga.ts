@@ -20,7 +20,6 @@ import {
 import { lobbyHub } from "../hubs";
 import { eventChannel, type EventChannel, type Task } from "redux-saga";
 import {
-  type WSInvokeOutput,
   type MatchResults,
   type CreateMatchRequest,
   type User,
@@ -35,8 +34,9 @@ import {
   onMatchesUpdated,
   loadLatestMatches,
   createMatch,
+  hubConnectionStatusUpdate,
 } from "../store/matchSlice";
-import { loadUser, logout, onLoginSuccess, store } from "../store";
+import { loadUser, logout, store } from "../store";
 import { authRequests } from "../api";
 import { authService } from "../services";
 import type { RequestResponseType } from "@hyper-fetch/core";
@@ -97,12 +97,20 @@ function* genConnectHub(
     yield call(waitForHubConnected, lobbyHub);
   }
 
-  lobbyHub.onclose((err) => {
-    console.log("Hub closed", err);
+  lobbyHub.onclose(() => {
+    store.dispatch(
+      hubConnectionStatusUpdate("hub_closed")
+    );
   });
 
   lobbyHub.onreconnected(() => {
     store.dispatch(hubConnected());
+  });
+
+  lobbyHub.onreconnecting(() => {
+    store.dispatch(
+      hubConnectionStatusUpdate("hub_reconnecting")
+    );
   });
 
   const channel: EventChannel<
@@ -193,7 +201,7 @@ export function* safeInvokeHubWithAuth<
       } else {
         yield put(loadUser());
       }
-      
+
       const result: T = yield call(() =>
         hub.invoke<T>(method, ...args)
       );

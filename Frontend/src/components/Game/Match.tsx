@@ -16,14 +16,16 @@ export const Match = () => {
   const matchState = useAppSelector((state) => state.match.currentMatch);
   const match = matchState?.match;
   const roomState = matchState?.roomState;
+  const hubConnectionState = matchState?.hubConnectionState;
 
   const navigate = useNavigate();
 
   useEffect(()=>{
-    if (roomState === "closed") {
+    if (roomState === "closed" 
+        || hubConnectionState === "hub_closed") {
       navigate("/lobby");
     }
-  }, [roomState, navigate]);
+  }, [roomState, hubConnectionState, navigate]);
 
   useEffect(() => {
     const id = uuidv4();
@@ -65,8 +67,20 @@ export const Match = () => {
       return "You are not logged in";
     }
 
-    if (roomState === "joining") {
+    if (roomState === "joining" 
+      || hubConnectionState === "channel_connecting") {
       return "Requesting to join match...";
+    }
+
+    if (
+      hubConnectionState === "channel_disconnected" ||
+      hubConnectionState === "hub_reconnecting"
+    ) {
+      return "Disconnected from game server. Reconnecting...";
+    }
+
+    if (hubConnectionState === "hub_closed") {
+      return "Disconnected from game server.";
     }
 
     if (match?.gameOutcome === eGameOutcome.Draw) {
@@ -109,10 +123,13 @@ export const Match = () => {
     }
 
     return "Enjoy the game";
-  }, [match, user, roomState]);
+  }, [match, user, hubConnectionState, roomState]);
 
   const getGameStatusClass = useMemo(() => {
-    if (user == null || roomState === "joining") {
+    if (
+      user == null || roomState === "joining"
+      || hubConnectionState !== "channel_connected"
+    ) {
       return "waiting";
     }
 
@@ -188,7 +205,7 @@ export const Match = () => {
           myMoveDisplay={myTurn == eGameTurn.Creator ? "X" : "O"}
           isFinished={match != null && match.hasFinished}
           isMyTurn={
-            roomState === "joined" 
+            roomState === "joined" && hubConnectionState === "channel_connected"
             && match?.memberStatus == ePlayerStatus.Joined && match?.creatorStatus == ePlayerStatus.Joined &&
             myTurn != null && match != null 
             && match.memberId != null && match.creatorId != null

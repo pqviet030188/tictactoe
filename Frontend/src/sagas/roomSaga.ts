@@ -33,7 +33,7 @@ import {
   type Task,
 } from "redux-saga";
 import { store } from "../store";
-import { eRoomActivity, type Match, type MatchResults, type RoomActivityUpdateRequest, type RoomActivityUpdateResponse, type WSInvokeOutput } from "../types";
+import { eRoomActivity, type Match, type MatchResults, type RoomActivityUpdateRequest, type RoomActivityUpdateResponse } from "../types";
 import { roomHub } from "../hubs";
 import { safeInvokeHubWithAuth, waitForHubConnected } from "./lobbySaga";
 
@@ -79,8 +79,16 @@ function* genConnectHub(
     yield call(waitForHubConnected, roomHub);
   }
 
-  roomHub.onclose((err) => {
-    console.log("Hub closed", err);
+  roomHub.onclose(() => {
+    // maybe need to send an error 
+    // to specific stream for logging later
+    store.dispatch(
+      roomHubStatusUpdate({
+        matchId,
+        sessionId,
+        status: "hub_closed",
+      })
+    );
   });
 
   roomHub.onreconnected(() => {
@@ -89,6 +97,16 @@ function* genConnectHub(
         matchId,
         sessionId,
         status: "connected",
+      })
+    );
+  });
+
+  roomHub.onreconnecting(() => {
+    store.dispatch(
+      roomHubStatusUpdate({
+        matchId,
+        sessionId,
+        status: "hub_reconnecting",
       })
     );
   });

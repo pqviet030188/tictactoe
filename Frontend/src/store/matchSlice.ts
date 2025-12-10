@@ -5,6 +5,7 @@ import {
 } from "@reduxjs/toolkit";
 import {
   type CreateMatchRequest,
+  type HubConnectionStatus,
   type Match,
   type MatchResults,
   type User,
@@ -18,6 +19,7 @@ interface MatchState {
     userId: string;
     sessionId: string;
     roomState: "joining" | "joined" | "closed",
+    hubConnectionState: HubConnectionStatus,
     match: Match;
   } | null;
   joiningLobby: boolean;
@@ -25,6 +27,7 @@ interface MatchState {
   lobbyError: string | null;
   matchError: string | null;
   displayedMatches?: Match[];
+  lobbyHubConnectionState?: HubConnectionStatus;
 }
 
 const defaultDisplayMatches = [] as Match[];
@@ -82,10 +85,20 @@ export const matchSlice = createSlice({
   initialState,
   reducers: {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    connectLobbyHub(_1, _2: PayloadAction<string>) {},
+    connectLobbyHub(state, _2: PayloadAction<string>) {
+      state.lobbyHubConnectionState = "channel_connecting";
+    },
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    disconnectLobbyHub(_1, _2: PayloadAction<string>) {},
-    hubConnected() {},
+    disconnectLobbyHub(state, _2: PayloadAction<string>) {
+      // technically, it's not disconnected yet, but attempting
+      state.lobbyHubConnectionState = "channel_disconnected";
+    },
+    hubConnected(state) {
+      state.lobbyHubConnectionState = "channel_connected";
+    },
+    hubConnectionStatusUpdate(state, action: PayloadAction<HubConnectionStatus>) {
+      state.lobbyHubConnectionState = action.payload;
+    },
     joinLobby() {},
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     createMatch(_1, _2: PayloadAction<CreateMatchRequest>) {},
@@ -139,9 +152,11 @@ export const matchSlice = createSlice({
         match: action.payload.match,
         sessionId: "",
         userId: action.payload.user.id,
-        roomState: "joining"
+        roomState: "joining",
+        hubConnectionState: "channel_connecting",
       };
     },
+    
     updateRoomSession(
       state,
       action: PayloadAction<{ matchId: string; sessionId: string }>
@@ -185,15 +200,35 @@ export const matchSlice = createSlice({
       }>
     ) {},
     roomHubStatusUpdate(
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      _1,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      _2: PayloadAction<{
+      state,
+      action: PayloadAction<{
         matchId: string;
         sessionId: string;
-        status: "connected" | "disconnected";
+        status: "connected" | "disconnected" | "hub_reconnecting" | "hub_closed";
       }>
-    ) {},
+    ) {
+      if (
+        state.currentMatch?.match?.id != action.payload.matchId ||
+        state.currentMatch?.sessionId != action.payload.sessionId
+      ) {
+        return;
+      }
+
+      if (action.payload.status === "connected")
+      {
+        state.currentMatch.hubConnectionState = "channel_connected";  
+      }
+      else if (action.payload.status === "disconnected")
+      {
+        state.currentMatch.hubConnectionState = "channel_disconnected";  
+      } else if (action.payload.status === "hub_reconnecting")
+      {
+        state.currentMatch.hubConnectionState = "hub_reconnecting";  
+      } else if (action.payload.status === "hub_closed")
+      {
+        state.currentMatch.hubConnectionState = "hub_closed";  
+      }
+    },
 
     makeMove(
       state,
@@ -226,6 +261,7 @@ export const matchSlice = createSlice({
 export const {
   joinLobby,
   hubConnected,
+  hubConnectionStatusUpdate,
   loadLatestMatches,
   connectLobbyHub,
   lobbyError,

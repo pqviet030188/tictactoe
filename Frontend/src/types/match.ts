@@ -79,3 +79,8 @@ export interface WSInvokeOutput<T> {
   isFaulted: boolean;
   result: T | null;
 }
+
+export type HubConnectionStatus = "channel_connecting" | 
+      "channel_connected" | 
+      "channel_disconnected" | 
+      "hub_reconnecting" | "hub_closed";
