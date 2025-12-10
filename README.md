@@ -442,7 +442,7 @@ environment:
 
 ## 📧 Contact
 
-**Viet Pham** – [@pqviet030188](https://github.com/pqviet030188)
+**Viet Phung** – [@pqviet030188](https://github.com/pqviet030188)
 
 Project Link: [https://github.com/pqviet030188/tictactoe](https://github.com/pqviet030188/tictactoe)
     
