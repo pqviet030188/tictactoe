@@ -55,7 +55,9 @@ public static class Configurations
 
         if (redisOptions != null)
         {
-            signalRService.AddStackExchangeRedis(redisOptions.ConnectionString);
+            signalRService.AddStackExchangeRedis(redisOptions.ConnectionString, options=>{
+                options.Configuration.ChannelPrefix = "tictactoe_signalr";
+            });
         }
 
         if (mongoDbOptions != null) {

@@ -158,7 +158,7 @@ export const Match = () => {
     }
 
     return "waiting";
-  }, [match, user, roomState]);
+  }, [match, user, hubConnectionState, roomState]);
 
   const onMoveClick = useCallback(
     (move: number) => {

@@ -1,6 +1,8 @@
 import {
+  all,
   call,
   put,
+  spawn,
   takeLatest,
   type CallEffect,
   type PutEffect,
@@ -32,11 +34,8 @@ function* genLogin(action: PayloadAction<LoginRequestPayload>): Generator {
 
     if (response.success && response.data) {
       yield put(onLoginSuccess(response.data));
-    }
-    else {
-      yield put(
-        onLoginFailed(response.error?.message ?? "Failed to login")
-      );
+    } else {
+      yield put(onLoginFailed(response.error?.message ?? "Failed to login"));
     }
   } catch (error) {
     yield put(onLoginFailed((error as Error).message));
@@ -69,7 +68,15 @@ function* genOnUserLoaded(): Generator {
 }
 
 export function* userSaga() {
-  yield takeLatest(loginRequest.type, genLogin);
-  yield takeLatest(loadUser.type, genLoadUser);
-  yield takeLatest(onhUserLoaded.type, genOnUserLoaded);
+  yield all([
+    spawn(function* () {
+      yield takeLatest(loginRequest.type, genLogin);
+    }),
+    spawn(function* () {
+      yield takeLatest(loadUser.type, genLoadUser);
+    }),
+    spawn(function* () {
+      yield takeLatest(onhUserLoaded.type, genOnUserLoaded);
+    }),
+  ]);
 }
