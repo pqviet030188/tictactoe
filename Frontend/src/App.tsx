@@ -11,7 +11,7 @@ import {
   Game,
   ProtectedRoute,
   Lobby,
-  CMatch,
+  Match,
 } from "./components";
 import { store } from "./store";
 import { Provider } from "react-redux";
@@ -54,7 +54,7 @@ function App() {
               path="/match"
               element={
                 <ProtectedRoute>
-                  <CMatch />
+                  <Match />
                 </ProtectedRoute>
               }
             />

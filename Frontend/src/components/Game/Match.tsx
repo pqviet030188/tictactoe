@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { eGameOutcome, eGameTurn } from "../../types";
-import "./CMatch.css";
+import { eGameOutcome, eGameTurn, ePlayerStatus } from "../../types";
+import "./Match.css";
 import { store, useAppSelector } from "../../store";
 import { useNavigate } from "react-router-dom";
 import {
@@ -11,11 +11,19 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { Board } from "./Board";
 
-export const CMatch = () => {
+export const Match = () => {
   const user = useAppSelector((state) => state.user.currentUser);
-  const match = useAppSelector((state) => state.match.currentMatch?.match);
+  const matchState = useAppSelector((state) => state.match.currentMatch);
+  const match = matchState?.match;
+  const roomState = matchState?.roomState;
 
   const navigate = useNavigate();
+
+  useEffect(()=>{
+    if (roomState === "closed") {
+      navigate("/lobby");
+    }
+  }, [roomState, navigate]);
 
   useEffect(() => {
     const id = uuidv4();
@@ -57,6 +65,10 @@ export const CMatch = () => {
       return "You are not logged in";
     }
 
+    if (roomState === "joining") {
+      return "Requesting to join match...";
+    }
+
     if (match?.gameOutcome === eGameOutcome.Draw) {
       return "Draw game";
     }
@@ -74,18 +86,33 @@ export const CMatch = () => {
     }
 
     if (match.nextTurn == eGameTurn.Creator) {
-      return match.creatorId === user?.id ? "Your turn" : "Opponent turn";
+      return match.creatorId === user?.id ?
+      // you are creator
+      // and opponent has left 
+        match.memberStatus == ePlayerStatus.Left? "Opponent left" :
+        "Your turn" : 
+        // opponent is creator
+        // and oppenent has left
+        match.creatorStatus == ePlayerStatus.Left? "Opponent left" : "Opponent turn";
     }
 
     if (match.nextTurn == eGameTurn.Member) {
-      return match.memberId === user?.id ? "Your turn" : "Opponent turn";
+      return match.memberId === user?.id ? 
+      // you are member
+      // and opponent has left
+      match.creatorStatus == ePlayerStatus.Left? "Opponent left" :
+      "Your turn" : 
+        // opponent is member
+        // and oppenent has left
+          match.memberStatus == ePlayerStatus.Left? "Opponent left" :
+        "Opponent turn";
     }
 
     return "Enjoy the game";
-  }, [match, user]);
+  }, [match, user, roomState]);
 
   const getGameStatusClass = useMemo(() => {
-    if (user == null) {
+    if (user == null || roomState === "joining") {
       return "waiting";
     }
 
@@ -114,7 +141,7 @@ export const CMatch = () => {
     }
 
     return "waiting";
-  }, [match, user]);
+  }, [match, user, roomState]);
 
   const onMoveClick = useCallback(
     (move: number) => {
@@ -161,6 +188,8 @@ export const CMatch = () => {
           myMoveDisplay={myTurn == eGameTurn.Creator ? "X" : "O"}
           isFinished={match != null && match.hasFinished}
           isMyTurn={
+            roomState === "joined" 
+            && match?.memberStatus == ePlayerStatus.Joined && match?.creatorStatus == ePlayerStatus.Joined &&
             myTurn != null && match != null 
             && match.memberId != null && match.creatorId != null
             && match.nextTurn === myTurn 

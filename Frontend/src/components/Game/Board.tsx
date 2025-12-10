@@ -1,5 +1,5 @@
 import { useCallback, useMemo, type FC } from "react";
-import "./CMatch.css";
+import "./Match.css";
 
 const BOARD_SIZE = 9;
 type CellValue = "X" | "O" | null;

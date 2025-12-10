@@ -15,7 +15,9 @@ import _ from "lodash";
 interface MatchState {
   matches: Record<string, Match>; // map of matchId to Match
   currentMatch: {
+    userId: string;
     sessionId: string;
+    roomState: "joining" | "joined" | "closed",
     match: Match;
   } | null;
   joiningLobby: boolean;
@@ -87,10 +89,24 @@ export const matchSlice = createSlice({
     joinLobby() {},
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     createMatch(_1, _2: PayloadAction<CreateMatchRequest>) {},
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    joinMatch(_1, _2: PayloadAction<string>) {},
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    leaveMatch(_1, _2: PayloadAction<string>) {},
+
+    // close the match without sending leaving signal to server
+    closeMatch(state, action: PayloadAction<string>) {
+      if (state.currentMatch?.match.id != action.payload) {
+        return;
+      }
+
+      state.currentMatch.roomState = "closed";
+    },
+
+    acceptJoin(state, action: PayloadAction<string>) {
+      if (state.currentMatch?.match.id != action.payload) {
+        return;
+      }
+
+      state.currentMatch.roomState = "joined";
+    },
+
     onMatchesCreated: updateMatchesAndPickTop10LatestUnfinishedOnes,
     onMatchesUpdated: updateMatchesAndPickTop10LatestUnfinishedOnes,
     updateLatestMatches: updateMatchesAndPickTop10LatestUnfinishedOnes,
@@ -118,10 +134,12 @@ export const matchSlice = createSlice({
     matchError(state, action: PayloadAction<string>) {
       state.matchError = action.payload;
     },
-    joinRoomRequest(state, action: PayloadAction<Match>) {
+    joinRoomRequest(state, action: PayloadAction<{match: Match, user: User}>) {
       state.currentMatch = {
-        match: action.payload,
+        match: action.payload.match,
         sessionId: "",
+        userId: action.payload.user.id,
+        roomState: "joining"
       };
     },
     updateRoomSession(
@@ -177,11 +195,6 @@ export const matchSlice = createSlice({
       }>
     ) {},
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    joinGame(_1, _2: PayloadAction<string>) {},
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    leaveGame(_1, _2: PayloadAction<string>) {},
     makeMove(
       state,
       action: PayloadAction<{ matchId: string; move: number; userId: string }>
@@ -218,8 +231,8 @@ export const {
   lobbyError,
   disconnectLobbyHub,
   createMatch,
-  joinMatch,
-  leaveMatch,
+  closeMatch,
+  acceptJoin,
   makeMove,
   updateRoomSession,
   onMatchesUpdated,

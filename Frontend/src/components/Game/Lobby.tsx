@@ -22,7 +22,11 @@ export const Lobby: FC = () => {
   }, []);
 
   const onJoinMatch = useCallback((match: Match) => {
-    store.dispatch(joinRoomRequest(match));
+    store.dispatch(joinRoomRequest({
+      match,
+      user: owner!,
+    }));
+    
     navigate("/match");
   }, [navigate]);
 

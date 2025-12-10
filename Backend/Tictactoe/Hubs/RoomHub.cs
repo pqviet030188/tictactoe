@@ -10,7 +10,8 @@ namespace Tictactoe.Hubs;
 
 public class RoomHub(IMatchRepository matchRepository,
 ILogger<RoomHub> logger,
-IHubContext<LobbyHub> lobbyHubContext) : Hub, IRoomHub
+IHubContext<LobbyHub> lobbyHubContext,
+IHubContext<RoomHub> selfHubContext) : Hub, IRoomHub
 {
     public static string MatchUpdatedEvent = "MatchUpdatedEvent";
 
@@ -166,6 +167,7 @@ IHubContext<LobbyHub> lobbyHubContext) : Hub, IRoomHub
         {
             // Capture context variables 
             var hubContext = lobbyHubContext;
+            var localHubContext = selfHubContext;
             var repository = matchRepository;
 
             // Don't block disconnection process
@@ -184,6 +186,21 @@ IHubContext<LobbyHub> lobbyHubContext) : Hub, IRoomHub
                                 Matches = matches,
                                 Count = matches.Count()
                             });
+
+                        foreach (var match in matches)
+                        {
+                            if (match != null) {
+                                var localRoomId = MatchNotificationGroup(match.Id!);
+
+                                // as the client is being disconnected, 
+                                // we need to use context instead
+                                await localHubContext.Clients.Group(localRoomId).SendAsync(MatchUpdatedEvent, new MatchResults()
+                                {
+                                    Matches = [match],
+                                    Count = 1
+                                });
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)

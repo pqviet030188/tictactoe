@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FC } from "react";
 import { useNavigate } from "react-router-dom";
-import "./CMatch.css";
+import "./Match.css";
 import { useAppSelector } from "../../store";
 import {
   eGameOutcome,

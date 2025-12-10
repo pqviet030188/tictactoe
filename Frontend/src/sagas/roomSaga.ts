@@ -20,12 +20,12 @@ import {
   connectRoomHub,
   roomHubStatusUpdate,
   onCurrentMatchUpdatedEvent,
-  joinMatch,
-  leaveMatch,
   onRoomActivityUpdated,
   matchError,
   makeMove,
   updateRoomSession,
+  closeMatch,
+  acceptJoin,
 } from "../store/matchSlice";
 import {
   eventChannel,
@@ -102,6 +102,88 @@ function* genConnectHub(
         channel
       );
 
+      const messageMatch = message?.payload?.matches?.[0];
+
+      if (!messageMatch) {
+        continue;
+      }
+
+      const userId: string | null = yield select(
+        (state: ReturnType<typeof store.getState>) => state.user?.currentUser?.id
+      );
+
+      if (!userId) {
+        continue;
+      }
+
+      // message match exists and user id exists
+
+      // take current match from the store
+      const currentMatch: {userId: string, sessionId: string, match: Match, roomState: "joining" | "closed" | "joined" } | null = yield select(
+        (state: ReturnType<typeof store.getState>) => state.match.currentMatch
+      );
+
+      // if current match not found, continue and discard the message
+      if (!currentMatch?.match || currentMatch?.match.id !== messageMatch.id) {
+        continue;
+      }
+
+      // if current match updated timestamp is higher than the one in the message, continue and discard the message
+      const currentMatchUpdatedAt = new Date(currentMatch.match.updatedAt).getTime();
+      const messageMatchUpdatedAt = new Date(messageMatch.updatedAt).getTime();
+      if (currentMatchUpdatedAt > messageMatchUpdatedAt) {
+        continue;
+      }
+
+      const roomState = currentMatch.roomState;
+
+      // if current match is closed, continue
+      if (roomState == "closed") {
+        continue;
+      }
+
+      // pull user connection id, and its role captured in the message
+      const messageUserRole = messageMatch.creatorId == userId? "Creator" : messageMatch.memberId == userId? "Member" : null;
+      const messageUserConnectionId = messageUserRole === "Creator" ? messageMatch.creatorConnectionId : messageUserRole === "Member" ? messageMatch.memberConnectionId : null;
+      
+      // pull client connection id from hub
+      const clientConnectionId = roomHub.connectionId;
+
+      // pull current client status (joining/joined/leaving/left) and its role from the store
+      const currentUserRole = currentMatch.match.creatorId == userId ? "Creator" : currentMatch.match.memberId == userId ? "Member" : null;
+
+      // role is null, it's catching up, we might rely on response instead
+      if (currentUserRole == null) {
+        continue;
+      }
+
+      // if message role is null, and current status is joining or joined, leave the room, continue
+      if (messageUserRole == null && (roomState == "joined" || roomState == "joining")) {
+        yield put(closeMatch(messageMatch.id));
+        continue;
+      }
+
+      // if message role mismatches with the current role, and current status is joining or joined, leave the room, continue
+      if (
+        messageUserRole != currentUserRole && 
+        (roomState == "joined" || roomState == "joining")) {
+        yield put(closeMatch(messageMatch.id));
+        continue;
+      }
+
+      // if message connection id is null, and current status is joining or joined, leave the room, continue
+      if (messageUserConnectionId == null && (roomState == "joined" || roomState == "joining")) {
+        yield put(closeMatch(messageMatch.id));
+        continue;
+      }
+
+      // if message connection id mismatches with the client connection id, and current status is joining or joined, leave the room, continue
+      if (messageUserConnectionId != clientConnectionId && (roomState == "joined" || roomState == "joining")) {
+        yield put(closeMatch(messageMatch.id));
+      }
+
+      // finally, message is the latest, and message role matches with current role, and message is given for the current connection
+      // update the message
       switch (message.type) {
         case onCurrentMatchUpdatedEvent.type:
           yield put(message);
@@ -139,7 +221,7 @@ function* genConnectHub(
   );
 }
 
-function* genJoinRoom(action: ReturnType<typeof joinMatch>): Generator<CallEffect | PutEffect, void, RoomActivityUpdateResponse> {
+function* genJoinRoom(roomId: string): Generator<CallEffect | PutEffect, void, RoomActivityUpdateResponse> {
   try {
       const result: RoomActivityUpdateResponse = 
       yield call(() => {
@@ -147,10 +229,21 @@ function* genJoinRoom(action: ReturnType<typeof joinMatch>): Generator<CallEffec
           RoomActivityUpdateResponse
         >(roomHub, WsUpdateRoomActivity, {
           roomActivity: eRoomActivity.JoinRoom,
-          roomId: action.payload,
+          roomId,
         } as RoomActivityUpdateRequest);
       });
-  
+      
+      // if there's no match returned, close the match
+      if (result.match == null) {
+        yield put(closeMatch(roomId));
+        return;
+      }
+      
+      yield put(
+        acceptJoin(roomId)
+      );
+
+      // otherwise update the match in the store
       yield put(
         onRoomActivityUpdated(result.match)
       );
@@ -159,7 +252,7 @@ function* genJoinRoom(action: ReturnType<typeof joinMatch>): Generator<CallEffec
     }
 }
 
-function* genLeaveRoom(action: ReturnType<typeof leaveMatch>): Generator<CallEffect | PutEffect, void, RoomActivityUpdateResponse> {
+function* genLeaveRoom(roomId: string): Generator<CallEffect | PutEffect, void, RoomActivityUpdateResponse> {
   try {
       const result: RoomActivityUpdateResponse = 
       yield call(() => {
@@ -167,10 +260,15 @@ function* genLeaveRoom(action: ReturnType<typeof leaveMatch>): Generator<CallEff
           RoomActivityUpdateResponse
         >(roomHub, WsUpdateRoomActivity, {
           roomActivity: eRoomActivity.LeaveRoom,
-          roomId: action.payload,
+          roomId,
         } as RoomActivityUpdateRequest);
       });
-  
+      
+      // close the match regardless
+      yield put(
+        closeMatch(roomId)
+      );
+
       yield put(
         onRoomActivityUpdated(result.match)
       );
@@ -224,15 +322,11 @@ function* genRoomHubStatusUpdate(
 
   if (status === "disconnected") {
     // perform join match
-    yield call(genLeaveRoom, {
-      type: leaveMatch.type, payload: matchId
-    });
+    yield call(genLeaveRoom, matchId);
   }
   else if (status === "connected") {
     // perform leave match
-    yield call(genJoinRoom, {
-      type: joinMatch.type, payload: matchId
-    });
+    yield call(genJoinRoom, matchId);
   }
 }
 
@@ -246,12 +340,6 @@ export function* roomSaga() {
     }),
     spawn(function* () {
       yield takeLatest(roomHubStatusUpdate.type, genRoomHubStatusUpdate);
-    }),
-    spawn(function* () {
-      yield takeLatest(joinMatch.type, genJoinRoom);
-    }),
-    spawn(function* () {
-      yield takeLatest(leaveMatch.type, genLeaveRoom);
     }),
     spawn(function* () {
       yield takeLatest(makeMove.type, genMakeMove);

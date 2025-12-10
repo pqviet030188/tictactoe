@@ -41,16 +41,22 @@ const canJoinMatch = (
   match: Match,
   owner: User | null | undefined
 ): boolean => {
-    
+
   return (
-    owner != null &&
-    ((isGameOpened(match) &&
-      (owner.id != match.creatorId || match.creatorStatus == ePlayerStatus.Left)) ||
-      (!isGameFinished(match) &&
-        ((match.memberId == owner?.id &&
-          match.memberStatus == ePlayerStatus.Left) ||
-          (match.creatorId == owner?.id &&
-            match.creatorStatus == ePlayerStatus.Left))))
+    owner != null && !isGameFinished(match) && (
+        isGameOpened(match) || (
+            [match.creatorId, match.memberId].includes(owner.id) &&
+            getPlayerCount(match) < 2
+        )
+    )
+    // &&
+    // ((isGameOpened(match) &&
+    //   (owner.id != match.creatorId || match.creatorStatus == ePlayerStatus.Left)) ||
+    //   (!isGameFinished(match) &&
+    //     ((match.memberId == owner?.id &&
+    //       match.memberStatus == ePlayerStatus.Left) ||
+    //       (match.creatorId == owner?.id &&
+    //         match.creatorStatus == ePlayerStatus.Left))))
   );
 };
 

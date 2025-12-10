@@ -111,25 +111,29 @@ public class MatchRepository(IDatabaseCollection databaseCollection) : IMatchRep
             status == PlayerStatus.Left ? mfilter.Or(
                 mfilter.Eq(m => m.CreatorId, userId),
                 mfilter.Eq(m => m.MemberId, userId)
-            ) : mfilter.Eq(m => m.GameOutcome, GameOutcome.Going),
+            ) : 
+            // joining if match is finished, maybe introduce readonly mode later
+            mfilter.Empty,
 
             // If leaving, allow if the connection ID matches
             status == PlayerStatus.Left ? mfilter.Or(
                 mfilter.Eq(m => m.CreatorConnectionId, connectionId),
                 mfilter.Eq(m => m.MemberConnectionId, connectionId)
-            ) :
-            // If joining, allow if the player has left
-            mfilter.Or(
-                mfilter.And(
-                    mfilter.Eq(m => m.CreatorId, userId),
-                    mfilter.Eq(m => m.CreatorStatus, PlayerStatus.Left)
-                ),
-                mfilter.And(
-                    mfilter.Eq(m => m.MemberId, userId),
-                    mfilter.Eq(m => m.MemberStatus, PlayerStatus.Left)
-                ),
-                mfilter.Eq(m => m.MemberId, null)
-            )
+            ) : 
+            // aceept new connection, client needs to logoff the match
+            mfilter.Empty
+            // // If joining, allow if the player has left
+            // mfilter.Or(
+            //     mfilter.And(
+            //         mfilter.Eq(m => m.CreatorId, userId),
+            //         mfilter.Eq(m => m.CreatorStatus, PlayerStatus.Left)
+            //     ),
+            //     mfilter.And(
+            //         mfilter.Eq(m => m.MemberId, userId),
+            //         mfilter.Eq(m => m.MemberStatus, PlayerStatus.Left)
+            //     ),
+            //     mfilter.Eq(m => m.MemberId, null)
+            // )
         );
 
         var pipeline = new[]
