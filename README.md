@@ -320,6 +320,33 @@ dotnet test
 - Custom `TestDatabaseCollection` with GUID-prefixed collections for isolation
 - SignalR client connections with `AccessTokenProvider`
 
+### Frontend Tests
+```bash
+cd Frontend
+npm test
+```
+
+**Test Coverage:**
+- **Redux Saga Tests**: Unit tests for saga side effects
+  - Lobby saga: Hub connection, lobby join, match creation
+  - Room saga: Hub connection, room join, move handling, disconnection flow
+  - Uses `redux-saga-test-plan` for declarative saga testing
+  - Mock SignalR hub invocations with type-safe responses
+
+- **React Component Tests**: Integration tests with Redux store
+  - Match component: Full game flow
+  - Configurable saga handlers via `mockSagaHandlers` pattern
+  - Event channel simulation for hub callbacks
+  - User interaction testing with `@testing-library/react`
+
+**Test Features:**
+- **Jest + ts-jest**: TypeScript support with CommonJS for tests
+- **Redux Provider Integration**: Tests use isolated store instances via `setupStore()`
+- **Event Channel Pattern**: Hub callbacks emit actions through saga channels
+- **Mock Hub Events**: Trigger SignalR events programmatically in tests
+- **Type Safety**: Full TypeScript coverage with proper typing for mocks
+- **Configurable Mocks**: Per-test customization of saga behavior without code duplication
+
 ---
 
 ## 🔧 Configuration
