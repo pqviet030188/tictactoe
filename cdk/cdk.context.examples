@@ -1,0 +1,38 @@
+# CDK Context Configuration Examples
+
+# Deploy to development (default)
+cdk deploy --all
+
+# Deploy to production with custom settings
+cdk deploy --all \
+  --context environment=prod \
+  --context enableAutoScaling=true \
+  --context minCapacity=2 \
+  --context maxCapacity=10 \
+  --context documentDbInstanceType=db.t3.large \
+  --context documentDbInstances=2 \
+  --context redisNodeType=cache.t3.small \
+  --context redisNumCacheNodes=2 \
+  --context backendCpu=1024 \
+  --context backendMemory=2048 \
+  --context backendDesiredCount=3
+
+# Deploy with custom domain and certificate
+cdk deploy --all \
+  --context environment=prod \
+  --context domain=tictactoe.example.com \
+  --context certificateArn=arn:aws:acm:us-east-1:123456789012:certificate/abc123
+
+# Cost-optimized deployment (minimal resources)
+cdk deploy --all \
+  --context environment=dev \
+  --context enableAutoScaling=false \
+  --context minCapacity=1 \
+  --context maxCapacity=1 \
+  --context documentDbInstanceType=db.t3.medium \
+  --context documentDbInstances=1 \
+  --context redisNodeType=cache.t3.micro \
+  --context redisNumCacheNodes=1 \
+  --context backendCpu=512 \
+  --context backendMemory=1024 \
+  --context backendDesiredCount=1

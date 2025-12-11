@@ -1,0 +1,34 @@
+{
+  "name": "tictactoe-cdk",
+  "version": "1.0.0",
+  "description": "AWS CDK infrastructure for TicTacToe application",
+  "bin": {
+    "cdk": "bin/app.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "node node_modules/aws-cdk/bin/cdk",
+    "synth": "node node_modules/aws-cdk/bin/cdk synth",
+    "deploy": "node node_modules/aws-cdk/bin/cdk deploy --all",
+    "deploy:network": "node node_modules/aws-cdk/bin/cdk deploy TicTacToe-dev-Network",
+    "deploy:database": "node node_modules/aws-cdk/bin/cdk deploy TicTacToe-dev-Database",
+    "deploy:backend": "node node_modules/aws-cdk/bin/cdk deploy TicTacToe-dev-Backend",
+    "deploy:frontend": "node node_modules/aws-cdk/bin/cdk deploy TicTacToe-dev-Frontend",
+    "bootstrap": "node node_modules/aws-cdk/bin/cdk bootstrap",
+    "list": "node node_modules/aws-cdk/bin/cdk list",
+    "destroy": "node node_modules/aws-cdk/bin/cdk destroy --all"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "aws-cdk": "^2.1033.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.232.1",
+    "constructs": "^10.3.0",
+    "dotenv": "^17.2.3",
+    "source-map-support": "^0.5.21"
+  }
+}

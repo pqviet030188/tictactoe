@@ -74,7 +74,7 @@ public class Program
                         if (policy.AllowAnyMethod)
                             p.AllowAnyMethod();
 
-                        if (policy.AllowAnyMethod)
+                        if (policy.AllowCredentials)
                             p.AllowCredentials();
                     });
                 }
@@ -177,8 +177,12 @@ public class Program
             app.UseSwaggerUI();
         }
 
-        // Run https redirection first if possible before checking cors
-        app.UseHttpsRedirection();
+        // Only use HTTPS redirection in development
+        // In production, ALB/CloudFront handles HTTPS termination
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseHttpsRedirection();
+        }
 
         if (corsPolicyOptions != null)
         {

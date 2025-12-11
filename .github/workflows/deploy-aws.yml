@@ -1,0 +1,220 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AWS_REGION: us-east-1
+  NODE_VERSION: '20'
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  deploy-infrastructure:
+    name: Deploy CDK Infrastructure
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    outputs:
+      backend-url: ${{ steps.stack-outputs.outputs.backend-url }}
+      bucket-name: ${{ steps.stack-outputs.outputs.bucket-name }}
+      distribution-id: ${{ steps.stack-outputs.outputs.distribution-id }}
+      ecr-uri: ${{ steps.stack-outputs.outputs.ecr-uri }}
+      cluster-name: ${{ steps.stack-outputs.outputs.cluster-name }}
+      service-name: ${{ steps.stack-outputs.outputs.service-name }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: cdk/package-lock.json
+
+      - name: Install CDK dependencies
+        working-directory: ./cdk
+        run: npm ci
+
+      - name: CDK Synth
+        working-directory: ./cdk
+        run: npm run synth
+
+      - name: CDK Deploy
+        working-directory: ./cdk
+        run: |
+          npm run cdk -- deploy --all \
+            --require-approval never \
+            --context environment=${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Get Stack Outputs
+        id: stack-outputs
+        run: |
+          BACKEND_URL=$(aws cloudformation describe-stacks \
+            --stack-name TicTacToeBackendStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerUrl`].OutputValue' \
+            --output text)
+          echo "backend-url=$BACKEND_URL" >> $GITHUB_OUTPUT
+
+          BUCKET_NAME=$(aws cloudformation describe-stacks \
+            --stack-name TicTacToeFrontendStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`WebsiteBucketName`].OutputValue' \
+            --output text)
+          echo "bucket-name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name TicTacToeFrontendStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`DistributionId`].OutputValue' \
+            --output text)
+          echo "distribution-id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+
+          ECR_URI=$(aws cloudformation describe-stacks \
+            --stack-name TicTacToeBackendStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`EcrRepositoryUri`].OutputValue' \
+            --output text)
+          echo "ecr-uri=$ECR_URI" >> $GITHUB_OUTPUT
+
+          CLUSTER_NAME=$(aws cloudformation describe-stacks \
+            --stack-name TicTacToeBackendStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`EcsClusterName`].OutputValue' \
+            --output text)
+          echo "cluster-name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+
+          SERVICE_NAME=$(aws cloudformation describe-stacks \
+            --stack-name TicTacToeBackendStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`EcsServiceName`].OutputValue' \
+            --output text)
+          echo "service-name=$SERVICE_NAME" >> $GITHUB_OUTPUT
+
+  deploy-backend:
+    name: Deploy Backend to ECS
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        working-directory: ./Backend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ needs.deploy-infrastructure.outputs.ecr-uri }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG -f Tictactoe/Dockerfile .
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REPOSITORY:latest
+          docker push $ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REPOSITORY:latest
+
+      - name: Force ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster ${{ needs.deploy-infrastructure.outputs.cluster-name }} \
+            --service ${{ needs.deploy-infrastructure.outputs.service-name }} \
+            --force-new-deployment
+
+      - name: Wait for ECS deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ needs.deploy-infrastructure.outputs.cluster-name }} \
+            --services ${{ needs.deploy-infrastructure.outputs.service-name }}
+
+  deploy-frontend:
+    name: Deploy Frontend to S3/CloudFront
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure, deploy-backend]
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./Frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./Frontend
+        env:
+          VITE_API_URL: ${{ needs.deploy-infrastructure.outputs.backend-url }}
+        run: npm run build
+
+      - name: Deploy to S3
+        working-directory: ./Frontend
+        run: |
+          aws s3 sync dist/ s3://${{ needs.deploy-infrastructure.outputs.bucket-name }}/ --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ needs.deploy-infrastructure.outputs.distribution-id }} \
+            --paths "/*"
+
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure, deploy-backend, deploy-frontend]
+    if: always()
+    
+    steps:
+      - name: Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment || 'dev' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend API:** ${{ needs.deploy-infrastructure.outputs.backend-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend:** https://[CloudFront Distribution]" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Status" >> $GITHUB_STEP_SUMMARY
+          echo "- Infrastructure: ${{ needs.deploy-infrastructure.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: ${{ needs.deploy-backend.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: ${{ needs.deploy-frontend.result }}" >> $GITHUB_STEP_SUMMARY

@@ -19,26 +19,32 @@ services:
   #   depends_on:
   #     - api
 
-  # api:
-  #   container_name: api
-  #   build:
-  #     context: ./Backend
-  #     dockerfile: dev.Dockerfile
-  #   ports:
-  #     - "5000:5000"
-  #   volumes:
-  #     - ./Backend:/app
-  #     - /app/Tictactoe/bin
-  #     - /app/Tictactoe/obj
-  #     - /app/TictactoeTest/bin
-  #     - /app/TictactoeTest/obj
-  #   environment:
-  #     - ASPNETCORE_URLS=http://+:5000
-  #     - Redis__ConnectionString=redis:6379,user=rex,password=rex112233
-  #     - MongoDb__ConnectionString=mongodb://mongo:27017/Tictactoe
-  #   depends_on:
-  #     - mongo
-  #     - redis
+  api:
+    container_name: api
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_URLS=http://+:5000
+      - Redis__ConnectionString=redis:6379,user=rex,password=rex112233
+      - MongoDb__ConnectionString=mongodb://mongo:27017/Tictactoe
+      - Jwt__Issuer=TictactoeIssuerDev
+      - Jwt__Audience=TictactoeAudienceDev
+      - Jwt__AccessTokenMinutes=60
+      - Jwt__RefreshTokenDays=7
+      - Jwt__Key=ThisIsADevelopmentKeyForTictactoeApplication12345
+      - CorsPolicies__Use=Default
+      - CorsPolicies__Policies__0__Name=Default
+      - CorsPolicies__Policies__0__AllowedOrigins__0=http://localhost:5173
+      - CorsPolicies__Policies__0__AllowAnyHeader=true
+      - CorsPolicies__Policies__0__AllowAnyMethod=true
+      - CorsPolicies__Policies__0__AllowCredentials=true
+      
+    depends_on:
+      - mongo
+      - redis
 
   redis:
     image: redis:7
