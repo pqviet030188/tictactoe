@@ -1,6 +1,6 @@
 import { useCallback, useEffect, type FC } from "react";
 import { useNavigate } from "react-router-dom";
-import { store, useAppSelector } from "../../store";
+import { useAppDispatch, useAppSelector } from "../../store";
 import { connectLobbyHub, createMatch, disconnectLobbyHub, joinRoomRequest } from "../../store/matchSlice";
 import { MatchList } from "./MatchList";
 import { LoadingScreen } from "../LoadingScreen";
@@ -14,7 +14,7 @@ export const Lobby: FC = () => {
   const matches = useAppSelector((state) => state.match.displayedMatches);
   const owner = useAppSelector((state) => state.user.currentUser);
   const lobbyHubConnectionState = useAppSelector((state) => state.match.lobbyHubConnectionState);
-
+  const dispatch = useAppDispatch();
   const isConnected = lobbyHubConnectionState === "channel_connected";
   const isReconnecting = 
     lobbyHubConnectionState === "channel_disconnected" 
@@ -36,29 +36,29 @@ export const Lobby: FC = () => {
   const makeMatch = useCallback(() => {
     if (!isConnected) return;
     
-    store.dispatch(createMatch({
+    dispatch(createMatch({
       name: "New Match",
     }));
-  }, [isConnected]);
+  }, [dispatch, isConnected]);
 
   const onJoinMatch = useCallback((match: Match) => {
     if (!isConnected) return;
     
-    store.dispatch(joinRoomRequest({
+    dispatch(joinRoomRequest({
       match,
       user: owner!,
     }));
 
     navigate("/match");
-  }, [navigate, owner, isConnected]);
+  }, [dispatch, navigate, owner, isConnected]);
 
   useEffect(() => {
     const id = uuidv4();
-    store.dispatch(connectLobbyHub(id));
+    dispatch(connectLobbyHub(id));
     return () => {
-      store.dispatch(disconnectLobbyHub(id));
+      dispatch(disconnectLobbyHub(id));
     };
-  }, []);
+  }, [dispatch]);
 
   // Loading screen when connecting
   if (isConnecting || isReconnecting) {

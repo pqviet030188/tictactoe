@@ -36,12 +36,13 @@ import {
   createMatch,
   hubConnectionStatusUpdate,
 } from "../store/matchSlice";
-import { loadUser, logout, store } from "../store";
+import { loadUser, logout } from "../store";
 import { authRequests } from "../api";
 import { authService } from "../services";
 import type { RequestResponseType } from "@hyper-fetch/core";
 import { emptyMatchResults } from "../constants";
 import type { HubConnection } from "@microsoft/signalr";
+import type { RootState } from "../store";
 
 const MatchesCreatedEvent = "MatchesCreated";
 const MatchesUpdatedEvent = "MatchesUpdated";
@@ -50,6 +51,19 @@ const WsActionJoinLobby = "JoinLobby";
 
 function createLobbyMessageChannel() {
   return eventChannel((emit) => {
+    lobbyHub.onreconnected(() => {
+      emit(hubConnected());
+    });
+
+    lobbyHub.onreconnecting(() => {
+      emit(hubConnectionStatusUpdate("hub_reconnecting"));
+    });
+
+    lobbyHub.onclose(() => {
+      emit(hubConnectionStatusUpdate("hub_closed"));
+    });
+
+
     lobbyHub.on(MatchesCreatedEvent, (results: MatchResults) => {
       emit(onMatchesCreated(results));
     });
@@ -97,22 +111,6 @@ function* genConnectHub(
     yield call(waitForHubConnected, lobbyHub);
   }
 
-  lobbyHub.onclose(() => {
-    store.dispatch(
-      hubConnectionStatusUpdate("hub_closed")
-    );
-  });
-
-  lobbyHub.onreconnected(() => {
-    store.dispatch(hubConnected());
-  });
-
-  lobbyHub.onreconnecting(() => {
-    store.dispatch(
-      hubConnectionStatusUpdate("hub_reconnecting")
-    );
-  });
-
   const channel: EventChannel<
     ReturnType<typeof onMatchesCreated> | ReturnType<typeof onMatchesUpdated>
   > = yield call(createLobbyMessageChannel);
@@ -121,10 +119,11 @@ function* genConnectHub(
     while (true) {
       const message:
         | ReturnType<typeof onMatchesCreated>
-        | ReturnType<typeof onMatchesUpdated> = yield take(channel);
+        | ReturnType<typeof onMatchesUpdated>
+        | ReturnType<typeof hubConnectionStatusUpdate> = yield take(channel);
 
       const currentUser: User | null = yield select(
-        (state: ReturnType<typeof store.getState>) => state.user.currentUser
+        (state: RootState) => state.user.currentUser
       );
 
       switch (message.type) {
@@ -139,6 +138,9 @@ function* genConnectHub(
             ...message,
             payload: { ...message.payload, currentUser },
           });
+          break;
+        case hubConnectionStatusUpdate.type:
+          yield put(message);
           break;
       }
     }
@@ -176,9 +178,7 @@ export function* safeInvokeHubWithAuth<
   any
 > {
   try {
-    const result: T = yield call(() =>
-      hub.invoke<T>(method, ...args)
-    );
+    const result: T = yield call([hub, hub.invoke], method, ...args);
 
     if (result.error?.errorCode === "AUTH_FAILED") {
       throw new Error(result.error?.errorCode);
@@ -187,24 +187,25 @@ export function* safeInvokeHubWithAuth<
     return result;
   } catch (err) {
     if (err instanceof Error && err.message === "AUTH_FAILED") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rresponse: RequestResponseType<any> = yield call(() =>
-        authRequests.refreshToken.send({
+      
+      const rresponse: RequestResponseType<typeof authRequests.refreshToken> = yield call(
+        [authRequests.refreshToken, authRequests.refreshToken.send],
+        {
           payload: {
             refreshToken: authService.getRefreshToken() ?? "",
           },
-        })
+        }
       );
 
       if (!rresponse.success || !rresponse.data) {
         yield put(logout());
       } else {
+
+        // new tokens received, reload user info
         yield put(loadUser());
       }
 
-      const result: T = yield call(() =>
-        hub.invoke<T>(method, ...args)
-      );
+      const result: T = yield call([hub, hub.invoke], method, ...args);
       return result;
     }
 
@@ -224,19 +225,10 @@ function* genJoinLobbySaga(): Generator<
             errorCode: string;
             errorMessage: string;
           };
-        } = yield call(() => {
-      return safeInvokeHubWithAuth<
-        MatchResults & {
-          error?: {
-            errorCode: string;
-            errorMessage: string;
-          };
-        }
-      >(lobbyHub, WsActionJoinLobby);
-    });
-
+        } = yield call(safeInvokeHubWithAuth, lobbyHub, WsActionJoinLobby);
+    
     const currentUser: User | null = yield select(
-      (state: ReturnType<typeof store.getState>) => state.user.currentUser
+      (state: RootState) => state.user.currentUser
     );
 
     yield put(
@@ -262,21 +254,12 @@ function* genCreateMatch(): Generator<
             errorCode: string;
             errorMessage: string;
           };
-        } = yield call(() => {
-      return safeInvokeHubWithAuth<
-        MatchResults & {
-          error?: {
-            errorCode: string;
-            errorMessage: string;
-          };
-        }
-      >(lobbyHub, WsActionCreateRoom, {
+        } = yield call(safeInvokeHubWithAuth, lobbyHub, WsActionCreateRoom, {
         name: "New Match",
       } as CreateMatchRequest);
-    });
 
     const currentUser: User | null = yield select(
-      (state: ReturnType<typeof store.getState>) => state.user.currentUser
+      (state: RootState) => state.user.currentUser
     );
 
     yield put(

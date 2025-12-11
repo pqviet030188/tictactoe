@@ -28,9 +28,9 @@ type LoginResponse = RequestResponseType<LoginRequest>;
 
 function* genLogin(action: PayloadAction<LoginRequestPayload>): Generator {
   try {
-    const response: LoginResponse = yield call(() =>
-      authRequests.login.send({ payload: action.payload })
-    );
+    const response: LoginResponse = yield call(
+      [authRequests.login, authRequests.login.send], 
+      { payload: action.payload });
 
     if (response.success && response.data) {
       yield put(onLoginSuccess(response.data));
@@ -48,9 +48,10 @@ function* genLoadUser(): Generator<
   UserResponse
 > {
   try {
-    const response: UserResponse = yield call(() =>
-      authRequests.user.send({ payload: {} })
-    );
+    const response: UserResponse = yield call(
+      [authRequests.user, authRequests.user.send], 
+      { payload: {} });
+
     if (response.success && response.data) {
       yield put(onhUserLoaded(response.data));
     } else {

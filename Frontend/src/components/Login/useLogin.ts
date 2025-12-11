@@ -3,12 +3,13 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import type { LoginRequest } from "../../types";
 import { authService } from "../../services";
-import { loginRequest, store, useAppSelector } from "../../store";
+import { loginRequest, useAppDispatch, useAppSelector } from "../../store";
 
 export const useLogin = () => {
   const navigate = useNavigate();
   const loginState = useAppSelector(state => state.user.login);
   const currentUser = useAppSelector(state => state.user.currentUser);
+  const dispatch = useAppDispatch();
   const {
     register,
     handleSubmit,
@@ -38,8 +39,8 @@ export const useLogin = () => {
   }, [register]);
 
   const onSubmit = useCallback(async (data: LoginRequest) => {
-    store.dispatch(loginRequest(data));
-  }, []);
+    dispatch(loginRequest(data));
+  }, [dispatch]);
 
   useEffect(()=>{
     if (

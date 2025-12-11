@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { eGameOutcome, eGameTurn, ePlayerStatus } from "../../types";
 import "./Match.css";
-import { store, useAppSelector } from "../../store";
+import { useAppSelector, useAppDispatch } from "../../store";
 import { useNavigate } from "react-router-dom";
 import {
   connectRoomHub,
@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Board } from "./Board";
 
 export const Match = () => {
+  const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.user.currentUser);
   const matchState = useAppSelector((state) => state.match.currentMatch);
   const match = matchState?.match;
@@ -29,7 +30,7 @@ export const Match = () => {
 
   useEffect(() => {
     const id = uuidv4();
-    store.dispatch(
+    dispatch(
       connectRoomHub({
         matchId: match?.id || "",
         sessionId: id,
@@ -37,14 +38,14 @@ export const Match = () => {
     );
 
     return () => {
-      store.dispatch(
+      dispatch(
         disconnectRoomHub({
           matchId: match?.id || "",
           sessionId: id,
         })
       );
     };
-  }, [match?.id]);
+  }, [match?.id, dispatch]);
 
   useEffect(() => {
     if (!user) {
@@ -165,7 +166,7 @@ export const Match = () => {
       if (match == null || user == null) {
         return;
       }
-      store.dispatch(
+      dispatch(
         makeMove({
           matchId: match.id,
           move: move,
@@ -173,7 +174,7 @@ export const Match = () => {
         })
       );
     },
-    [match, user]
+    [match, user, dispatch]
   );
 
   const myTurn = useMemo(() => {

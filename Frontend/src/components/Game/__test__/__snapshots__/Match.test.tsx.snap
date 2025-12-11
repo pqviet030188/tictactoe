@@ -1,0 +1,78 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`Match Component Display turn and moves between players correctly 1`] = `
+<div>
+  <div
+    class="cgame-container"
+  >
+    <div
+      class="cgame-header"
+    >
+      <h1
+        class="welcome-message"
+      >
+        Welcome, 
+        test@example.com
+        !
+      </h1>
+      <button
+        class="leave-button"
+      >
+        Leave Game
+      </button>
+    </div>
+    <div
+      class="cgame-content"
+    >
+      <div
+        class="game-status my-turn"
+      >
+        Your turn
+      </div>
+      <div
+        class="game-info"
+      >
+        <h3>
+          Match: 
+          Test Match
+        </h3>
+      </div>
+      <div
+        class="tictactoe-board"
+      >
+        <button
+          class="game-cell filled"
+        >
+          X
+        </button>
+        <button
+          class="game-cell filled"
+        >
+          O
+        </button>
+        <button
+          class="game-cell "
+        />
+        <button
+          class="game-cell "
+        />
+        <button
+          class="game-cell "
+        />
+        <button
+          class="game-cell "
+        />
+        <button
+          class="game-cell "
+        />
+        <button
+          class="game-cell "
+        />
+        <button
+          class="game-cell "
+        />
+      </div>
+    </div>
+  </div>
+</div>
+`;

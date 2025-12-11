@@ -1,7 +1,7 @@
 import React, { useCallback } from "react";
 import { useCurrentUser } from "../../hooks";
 import "./GameMenu.css";
-import { logout, store } from "../../store";
+import { logout, useAppDispatch } from "../../store";
 
 interface GameMenuProps {
   onGameModeSelect: (mode: "vsCpu" | "vsPlayer") => void;
@@ -9,6 +9,7 @@ interface GameMenuProps {
 
 export const GameMenu: React.FC<GameMenuProps> = ({ onGameModeSelect }) => {
   const { currentUser } = useCurrentUser();
+  const dispatch = useAppDispatch();
   
   const handleVsCPU = useCallback(() => {
     onGameModeSelect("vsCpu");
@@ -19,8 +20,8 @@ export const GameMenu: React.FC<GameMenuProps> = ({ onGameModeSelect }) => {
   }, [onGameModeSelect]);
 
   const handleLogout = useCallback(() => {
-    store.dispatch(logout());
-  }, []);
+    dispatch(logout());
+  }, [dispatch]);
 
   return (
     <div className="game-menu-container">

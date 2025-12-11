@@ -1,5 +1,5 @@
 import Cookies from 'js-cookie';
-import config from '../config';
+import config from '../appConfig';
 import type { AuthResponse } from '../types';
 // import { clearUser, store } from '../store';
 

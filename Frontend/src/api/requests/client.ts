@@ -1,5 +1,5 @@
 import { Client, type QueryParamsType } from '@hyper-fetch/core';
-import config from '../../config';
+import config from '../../appConfig';
 import { authRequests } from './auth';
 import { authService } from '../../services';
 import { onLoginFailed, store } from '../../store';
@@ -61,7 +61,7 @@ client.onResponse(async (response, request) => {
         // retry
         return request.send();
       } else {
-
+        
         store.dispatch(onLoginFailed('Session expired. Please log in again.'));
         return response;
       }
