@@ -1,7 +1,7 @@
 using System.Reflection;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
-using Tictactoe.Types.Options;
+using Tictactoe.Configurations.Options;
 using Tictactoe.Types.Attributes;
 using Tictactoe.DTOs;
 namespace Tictactoe.Hubs.Filters;

@@ -11,7 +11,7 @@ using Tictactoe.Types.Enums;
 using Microsoft.Extensions.Configuration;
 using Tictactoe.Hubs;
 using MongoDB.Bson;
-using Tictactoe.Types.Options;
+using Tictactoe.Configurations.Options;
 using TictactoeTest.Helper;
 using Tictactoe.Types.Interfaces;
 using MongoDB.Driver;

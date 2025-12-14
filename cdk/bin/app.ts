@@ -3,53 +3,49 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { TicTacToeNetworkStack } from '../lib/network-stack';
 // import { TicTacToeDatabaseStack } from '../lib/database-stack';
+import { TicTacToeEcrStack } from '../lib/ecr-stack';
 import { TicTacToeBackendStack } from '../lib/backend-stack';
 import { TicTacToeFrontendStack } from '../lib/frontend-stack';
-import { getResourcePrefix, Settings } from '../lib/settings';
+import { getResourcePrefix, specifications } from '../settings';
+import { projectTemplate } from '../settings';
 
 const app = new cdk.App();
 
-// Configuration from context or environment variables
-const env = {
-  account: process.env.CDK_DEFAULT_ACCOUNT || process.env.AWS_ACCOUNT_ID,
-  region: process.env.CDK_DEFAULT_REGION || process.env.AWS_REGION || Settings.defaults.region,
-};
-
-const config = {
-  projectName: Settings.defaults.projectName,
-  environment: app.node.tryGetContext('environment') || Settings.defaults.environment,
-  domain: app.node.tryGetContext('domain'), // Optional: your custom domain
-  certificateArn: app.node.tryGetContext('certificateArn'), // Optional: ACM certificate ARN
-  
-  // Cost optimization settings
-  enableAutoScaling: app.node.tryGetContext('enableAutoScaling') !== 'false',
-  minCapacity: parseInt(app.node.tryGetContext('minCapacity') || String(Settings.backend.autoScaling.defaultMinCapacity)),
-  maxCapacity: parseInt(app.node.tryGetContext('maxCapacity') || String(Settings.backend.autoScaling.defaultMaxCapacity)),
-  
-  // Database settings
-  documentDbInstanceType: app.node.tryGetContext('documentDbInstanceType') || Settings.database.documentDb.defaultInstanceType,
-  documentDbInstances: parseInt(app.node.tryGetContext('documentDbInstances') || String(Settings.database.documentDb.defaultInstances)),
-  
-  // Redis settings
-  redisNodeType: app.node.tryGetContext('redisNodeType') || Settings.database.redis.defaultNodeType,
-  redisNumCacheNodes: parseInt(app.node.tryGetContext('redisNumCacheNodes') || String(Settings.database.redis.defaultNumNodes)),
-  
-  // Backend settings
-  backendCpu: parseInt(app.node.tryGetContext('backendCpu') || String(Settings.backend.defaultCpu)),
-  backendMemory: parseInt(app.node.tryGetContext('backendMemory') || String(Settings.backend.defaultMemory)),
-  backendDesiredCount: parseInt(app.node.tryGetContext('backendDesiredCount') || String(Settings.backend.defaultDesiredCount)),
-};
-
+const appProjectTemplate = projectTemplate(app);
 // Stack 1: Network infrastructure (VPC, Subnets, NAT Gateway)
-const networkStack = new TicTacToeNetworkStack(app, `${getResourcePrefix(config.projectName, config.environment)}-Network`, {
-  env,
+const networkStack = new TicTacToeNetworkStack(app, `${getResourcePrefix(appProjectTemplate.projectName, appProjectTemplate.environment)}-Network`, {
+   env: {
+    account: appProjectTemplate.account,
+    region: appProjectTemplate.region,
+   }, 
   description: 'Network infrastructure for TicTacToe application',
   tags: {
-    Project: config.projectName,
-    Environment: config.environment,
-    ManagedBy: Settings.tags.managedBy,
+    Project: appProjectTemplate.projectName,
+    Environment: appProjectTemplate.environment,
+    ManagedBy: specifications.tags.managedBy,
   },
-  config,
+  config: {
+    environment: appProjectTemplate.environment,
+    projectName: appProjectTemplate.projectName,
+  },
+});
+
+// Stack 2: ECR Repository (must be created before backend stack)
+const ecrStack = new TicTacToeEcrStack(app, `${getResourcePrefix(appProjectTemplate.projectName, appProjectTemplate.environment)}-ECR`, {
+  env: {
+    account: appProjectTemplate.account,
+    region: appProjectTemplate.region,
+   }, 
+  description: 'ECR repository for TicTacToe backend Docker images',
+  tags: {
+    Project: appProjectTemplate.projectName,
+    Environment: appProjectTemplate.environment,
+    ManagedBy: specifications.tags.managedBy,
+  },
+  config: {
+    environment: appProjectTemplate.environment,
+    projectName: appProjectTemplate.projectName,
+  },
 });
 
 // Stack 2: Database infrastructure (DocumentDB, ElastiCache)
@@ -67,32 +63,54 @@ const networkStack = new TicTacToeNetworkStack(app, `${getResourcePrefix(config.
 // databaseStack.addDependency(networkStack);
 
 // Stack 3: Backend infrastructure (ECS Fargate, ALB)
-const backendStack = new TicTacToeBackendStack(app, `${getResourcePrefix(config.projectName, config.environment)}-Backend`, {
-  env,
+const backendStack = new TicTacToeBackendStack(app, `${getResourcePrefix(appProjectTemplate.projectName, appProjectTemplate.environment)}-Backend`, {
+  env: {
+    account: appProjectTemplate.account,
+    region: appProjectTemplate.region,
+  },
   description: 'Backend infrastructure for TicTacToe application',
   tags: {
-    Project: config.projectName,
-    Environment: config.environment,
-    ManagedBy: Settings.tags.managedBy,
+    Project: appProjectTemplate.projectName,
+    Environment: appProjectTemplate.environment,
+    ManagedBy: specifications.tags.managedBy,
   },
   vpc: networkStack.vpc,
+  ecrRepository: ecrStack.ecrRepository,
   // documentDbCluster: databaseStack.documentDbCluster,
   // redisCluster: databaseStack.redisCluster,
-  config,
+  config: {
+    environment: appProjectTemplate.environment,
+    projectName: appProjectTemplate.projectName,
+    backendCpu: appProjectTemplate.backendCpu,
+    backendMemory: appProjectTemplate.backendMemory,
+    backendDesiredCount: appProjectTemplate.backendDesiredCount,
+    enableAutoScaling: appProjectTemplate.enableAutoScaling,
+    minCapacity: appProjectTemplate.minCapacity,
+    maxCapacity: appProjectTemplate.maxCapacity,
+  }
 });
+backendStack.addDependency(ecrStack);
 // backendStack.addDependency(databaseStack);
 
 // Stack 4: Frontend infrastructure (S3, CloudFront)
-const frontendStack = new TicTacToeFrontendStack(app, `${getResourcePrefix(config.projectName, config.environment)}-Frontend`, {
-  env,
+const frontendStack = new TicTacToeFrontendStack(app, `${getResourcePrefix(appProjectTemplate.projectName, appProjectTemplate.environment)}-Frontend`, {
+  env: {
+    account: appProjectTemplate.account,
+    region: appProjectTemplate.region,
+  },
   description: 'Frontend infrastructure for TicTacToe application',
   tags: {
-    Project: config.projectName,
-    Environment: config.environment,
-    ManagedBy: Settings.tags.managedBy,
+    Project: appProjectTemplate.projectName,
+    Environment: appProjectTemplate.environment,
+    ManagedBy: specifications.tags.managedBy,
   },
   backendUrl: backendStack.loadBalancerUrl,
-  config,
+  config: {
+    environment: appProjectTemplate.environment,
+    projectName: appProjectTemplate.projectName,
+    certificateArn: appProjectTemplate.certificateArn,
+    domain: appProjectTemplate.domain,
+  },
 });
 frontendStack.addDependency(backendStack);
 

@@ -6,11 +6,10 @@ using CSharp.Mongo.Migration.Core.Locators;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
-using Tictactoe.Types.Options;
+using Tictactoe.Configurations.Options;
 using System.Reflection;
 using Semver;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 namespace Tictactoe;
 
 public class Program
@@ -28,7 +27,7 @@ public class Program
 
         var builder = WebApplication.CreateBuilder(args);
         builder.Services.AddOptions(builder.Configuration);
-        var (redisOptions, mongoDbOptions, corsPolicyOptions) = builder.Configuration.GetConfigs();
+        var (redisOptions, mongoDbOptions, corsPolicyOptions, httpsOptions) = builder.Configuration.GetConfigs();
         builder.Services.AddControllers(options =>
         {
             options.ModelValidatorProviders.Clear();
@@ -67,6 +66,9 @@ public class Program
                     {
                         if (policy.AllowedOrigins.Any())
                             p.WithOrigins([.. policy.AllowedOrigins]);
+                        else {
+                            p.SetIsOriginAllowed(origin => true);
+                        }
 
                         if (policy.AllowAnyHeader)
                             p.AllowAnyHeader();
@@ -98,7 +100,7 @@ public class Program
             })
             .AddJwtBearer(options =>
             {
-                options.RequireHttpsMetadata = false;
+                options.RequireHttpsMetadata =  httpsOptions.CRequireHttpsMetadata;
                 options.SaveToken = true;
                 options.TokenValidationParameters = TokenService.GetTokenValidationParameters(jwtOptions);
                 options.Events = new JwtBearerEvents
@@ -179,7 +181,7 @@ public class Program
 
         // Only use HTTPS redirection in development
         // In production, ALB/CloudFront handles HTTPS termination
-        if (app.Environment.IsDevelopment())
+        if (httpsOptions.Enabled)
         {
             app.UseHttpsRedirection();
         }
@@ -192,6 +194,7 @@ public class Program
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapControllers();
+        app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
 
         app.MapHub<SignalRHub>("/test");
         app.MapHub<LobbyHub>("/lobby");

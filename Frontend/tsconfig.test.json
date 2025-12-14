@@ -8,7 +8,7 @@
     "resolveJsonModule": true,
     "allowImportingTsExtensions": false,
     "verbatimModuleSyntax": false,
-    "noEmit": false,
+    "noEmit": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "isolatedModules": true,

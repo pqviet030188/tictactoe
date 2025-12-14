@@ -5,7 +5,7 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { Settings, isProductionEnvironment, getResourcePrefix } from './settings';
+import { specifications, isProductionEnvironment, getResourcePrefix } from '../settings';
 
 export interface TicTacToeFrontendStackProps extends cdk.StackProps {
   backendUrl: string;
@@ -56,9 +56,9 @@ export class TicTacToeFrontendStack extends cdk.Stack {
     const staticAssetsCachePolicy = new cloudfront.CachePolicy(this, 'StaticAssetsCachePolicy', {
       cachePolicyName: `${prefix}-static-cache`,
       comment: 'Cache policy for static assets (JS, CSS, images)',
-      defaultTtl: Settings.frontend.caching.staticAssets.defaultTtl,
-      maxTtl: Settings.frontend.caching.staticAssets.maxTtl,
-      minTtl: Settings.frontend.caching.staticAssets.minTtl,
+      defaultTtl: specifications.frontend.caching.staticAssets.defaultTtl,
+      maxTtl: specifications.frontend.caching.staticAssets.maxTtl,
+      minTtl: specifications.frontend.caching.staticAssets.minTtl,
       headerBehavior: cloudfront.CacheHeaderBehavior.none(),
       queryStringBehavior: cloudfront.CacheQueryStringBehavior.none(),
       cookieBehavior: cloudfront.CacheCookieBehavior.none(),
@@ -70,9 +70,9 @@ export class TicTacToeFrontendStack extends cdk.Stack {
     const htmlCachePolicy = new cloudfront.CachePolicy(this, 'HtmlCachePolicy', {
       cachePolicyName: `${prefix}-html-cache`,
       comment: 'Cache policy for HTML files',
-      defaultTtl: Settings.frontend.caching.html.defaultTtl,
-      maxTtl: Settings.frontend.caching.html.maxTtl,
-      minTtl: Settings.frontend.caching.html.minTtl,
+      defaultTtl: specifications.frontend.caching.html.defaultTtl,
+      maxTtl: specifications.frontend.caching.html.maxTtl,
+      minTtl: specifications.frontend.caching.html.minTtl,
       headerBehavior: cloudfront.CacheHeaderBehavior.none(),
       queryStringBehavior: cloudfront.CacheQueryStringBehavior.none(),
       cookieBehavior: cloudfront.CacheCookieBehavior.none(),
@@ -110,21 +110,21 @@ export class TicTacToeFrontendStack extends cdk.Stack {
           compress: true,
         },
       },
-      errorResponses: Settings.frontend.errorResponses.codes.map(code => ({
+      errorResponses: specifications.frontend.errorResponses.codes.map(code => ({
         httpStatus: code.httpStatus,
         responseHttpStatus: code.responseHttpStatus,
         responsePagePath: code.responsePagePath,
-        ttl: Settings.frontend.errorResponses.ttl,
+        ttl: specifications.frontend.errorResponses.ttl,
       })),
-      priceClass: cloudfront.PriceClass[Settings.frontend.priceClass as keyof typeof cloudfront.PriceClass],
-      enableLogging: isProductionEnvironment(config.environment) && Settings.frontend.logging.enabled.prod,
-      logBucket: isProductionEnvironment(config.environment) && Settings.frontend.logging.enabled.prod ? new s3.Bucket(this, 'LogBucket', {
+      priceClass: cloudfront.PriceClass[specifications.frontend.priceClass as keyof typeof cloudfront.PriceClass],
+      enableLogging: isProductionEnvironment(config.environment) && specifications.frontend.logging.enabled.prod,
+      logBucket: isProductionEnvironment(config.environment) && specifications.frontend.logging.enabled.prod ? new s3.Bucket(this, 'LogBucket', {
         bucketName: `${config.projectName.toLowerCase()}-${config.environment}-frontend-logs`,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
         autoDeleteObjects: true,
         lifecycleRules: [
           {
-            expiration: Settings.frontend.logging.retention,
+            expiration: specifications.frontend.logging.retention,
           },
         ],
       }) : undefined,

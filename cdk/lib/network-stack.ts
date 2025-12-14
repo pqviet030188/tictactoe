@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
-import { Settings, getResourcePrefix } from './settings';
+import { specifications, getResourcePrefix } from '../settings';
 
 export interface TicTacToeNetworkStackProps extends cdk.StackProps {
   config: {
@@ -24,25 +24,25 @@ export class TicTacToeNetworkStack extends cdk.Stack {
     // For production with high availability, consider natGateways: 2
     this.vpc = new ec2.Vpc(this, 'TicTacToeVpc', {
       vpcName: `${prefix}-vpc`,
-      maxAzs: Settings.network.maxAzs,
-      natGateways: Settings.network.natGateways,
+      maxAzs: specifications.network.maxAzs,
+      natGateways: specifications.network.natGateways,
       // For even lower cost: natGateways: 0 and use VPC endpoints, but limits outbound internet
       
       subnetConfiguration: [
         {
           name: 'Public',
           subnetType: ec2.SubnetType.PUBLIC,
-          cidrMask: Settings.network.subnetCidrMask,
+          cidrMask: specifications.network.subnetCidrMask,
         },
         {
           name: 'Private',
           subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-          cidrMask: Settings.network.subnetCidrMask,
+          cidrMask: specifications.network.subnetCidrMask,
         },
         {
           name: 'Isolated',
           subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
-          cidrMask: Settings.network.subnetCidrMask,
+          cidrMask: specifications.network.subnetCidrMask,
         },
       ],
       
@@ -81,13 +81,13 @@ export class TicTacToeNetworkStack extends cdk.Stack {
 
     albSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(Settings.network.ports.http),
+      ec2.Port.tcp(specifications.network.ports.http),
       'Allow HTTP traffic from anywhere'
     );
 
     albSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(Settings.network.ports.https),
+      ec2.Port.tcp(specifications.network.ports.https),
       'Allow HTTPS traffic from anywhere'
     );
 
@@ -101,37 +101,43 @@ export class TicTacToeNetworkStack extends cdk.Stack {
 
     ecsSecurityGroup.addIngressRule(
       albSecurityGroup,
-      ec2.Port.tcp(Settings.network.ports.backend),
-      `Allow traffic from ALB to ECS tasks on port ${Settings.network.ports.backend}`
+      ec2.Port.tcp(specifications.network.ports.backend),
+      `Allow traffic from ALB to ECS tasks on port ${specifications.network.ports.backend}`
+    );
+
+    ecsSecurityGroup.addIngressRule(
+      albSecurityGroup,
+      ec2.Port.tcp(specifications.network.ports.frontend),
+      `Allow traffic from ALB to ECS tasks on port ${specifications.network.ports.frontend}`
     );
 
     // Security group for DocumentDB
-    const documentDbSecurityGroup = new ec2.SecurityGroup(this, 'DocumentDbSecurityGroup', {
-      vpc: this.vpc,
-      securityGroupName: `${prefix}-docdb-sg`,
-      description: 'Security group for DocumentDB',
-      allowAllOutbound: false,
-    });
+    // const documentDbSecurityGroup = new ec2.SecurityGroup(this, 'DocumentDbSecurityGroup', {
+    //   vpc: this.vpc,
+    //   securityGroupName: `${prefix}-docdb-sg`,
+    //   description: 'Security group for DocumentDB',
+    //   allowAllOutbound: false,
+    // });
 
-    documentDbSecurityGroup.addIngressRule(
-      ecsSecurityGroup,
-      ec2.Port.tcp(Settings.network.ports.mongodb),
-      'Allow MongoDB traffic from ECS tasks'
-    );
+    // documentDbSecurityGroup.addIngressRule(
+    //   ecsSecurityGroup,
+    //   ec2.Port.tcp(specifications.network.ports.mongodb),
+    //   'Allow MongoDB traffic from ECS tasks'
+    // );
 
     // Security group for Redis
-    const redisSecurityGroup = new ec2.SecurityGroup(this, 'RedisSecurityGroup', {
-      vpc: this.vpc,
-      securityGroupName: `${prefix}-redis-sg`,
-      description: 'Security group for Redis',
-      allowAllOutbound: false,
-    });
+    // const redisSecurityGroup = new ec2.SecurityGroup(this, 'RedisSecurityGroup', {
+    //   vpc: this.vpc,
+    //   securityGroupName: `${prefix}-redis-sg`,
+    //   description: 'Security group for Redis',
+    //   allowAllOutbound: false,
+    // });
 
-    redisSecurityGroup.addIngressRule(
-      ecsSecurityGroup,
-      ec2.Port.tcp(Settings.network.ports.redis),
-      'Allow Redis traffic from ECS tasks'
-    );
+    // redisSecurityGroup.addIngressRule(
+    //   ecsSecurityGroup,
+    //   ec2.Port.tcp(specifications.network.ports.redis),
+    //   'Allow Redis traffic from ECS tasks'
+    // );
 
     // Export security groups for use in other stacks
     this.exportValue(albSecurityGroup.securityGroupId, {
@@ -142,13 +148,13 @@ export class TicTacToeNetworkStack extends cdk.Stack {
       name: `${prefix}-ecs-sg-id`,
     });
 
-    this.exportValue(documentDbSecurityGroup.securityGroupId, {
-      name: `${prefix}-docdb-sg-id`,
-    });
+    // this.exportValue(documentDbSecurityGroup.securityGroupId, {
+    //   name: `${prefix}-docdb-sg-id`,
+    // });
 
-    this.exportValue(redisSecurityGroup.securityGroupId, {
-      name: `${prefix}-redis-sg-id`,
-    });
+    // this.exportValue(redisSecurityGroup.securityGroupId, {
+    //   name: `${prefix}-redis-sg-id`,
+    // });
 
     // Outputs
     new cdk.CfnOutput(this, 'VpcId', {
@@ -161,13 +167,13 @@ export class TicTacToeNetworkStack extends cdk.Stack {
     cdk.Tags.of(this.vpc).add('Name', `${prefix}-vpc`);
     cdk.Tags.of(albSecurityGroup).add('Name', `${prefix}-alb-sg`);
     cdk.Tags.of(ecsSecurityGroup).add('Name', `${prefix}-ecs-sg`);
-    cdk.Tags.of(documentDbSecurityGroup).add('Name', `${prefix}-docdb-sg`);
-    cdk.Tags.of(redisSecurityGroup).add('Name', `${prefix}-redis-sg`);
+    // cdk.Tags.of(documentDbSecurityGroup).add('Name', `${prefix}-docdb-sg`);
+    // cdk.Tags.of(redisSecurityGroup).add('Name', `${prefix}-redis-sg`);
 
     // Store security groups as properties for cross-stack access
     (this as any).albSecurityGroup = albSecurityGroup;
     (this as any).ecsSecurityGroup = ecsSecurityGroup;
-    (this as any).documentDbSecurityGroup = documentDbSecurityGroup;
-    (this as any).redisSecurityGroup = redisSecurityGroup;
+    // (this as any).documentDbSecurityGroup = documentDbSecurityGroup;
+    // (this as any).redisSecurityGroup = redisSecurityGroup;
   }
 }

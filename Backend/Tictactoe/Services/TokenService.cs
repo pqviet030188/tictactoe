@@ -3,7 +3,7 @@ using System.Text;
 using Microsoft.Extensions.Options;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
-using Tictactoe.Types.Options;
+using Tictactoe.Configurations.Options;
 using Tictactoe.Types.Interfaces;
 using Tictactoe.Models;
 

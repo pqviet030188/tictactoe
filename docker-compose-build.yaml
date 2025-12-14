@@ -22,10 +22,13 @@ services:
   api:
     container_name: api
     build:
+      #context: ./Backend
+      #dockerfile: Dockerfile
       context: ./Backend
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
+      - "8080:8080"
     environment:
       - ASPNETCORE_URLS=http://+:5000
       - Redis__ConnectionString=redis:6379,user=rex,password=rex112233
@@ -37,7 +40,7 @@ services:
       - Jwt__Key=ThisIsADevelopmentKeyForTictactoeApplication12345
       - CorsPolicies__Use=Default
       - CorsPolicies__Policies__0__Name=Default
-      - CorsPolicies__Policies__0__AllowedOrigins__0=http://localhost:5173
+      - CorsPolicies__Policies__0__AllowedOrigins__0=http://localhost:8080
       - CorsPolicies__Policies__0__AllowAnyHeader=true
       - CorsPolicies__Policies__0__AllowAnyMethod=true
       - CorsPolicies__Policies__0__AllowCredentials=true

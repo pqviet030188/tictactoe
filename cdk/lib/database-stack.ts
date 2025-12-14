@@ -4,7 +4,7 @@ import * as docdb from 'aws-cdk-lib/aws-docdb';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
-import { Settings, getBackupRetention, isProductionEnvironment, getResourcePrefix } from './settings';
+import { specifications, getBackupRetention, isProductionEnvironment, getResourcePrefix } from '../settings';
 
 export interface TicTacToeDatabaseStackProps extends cdk.StackProps {
   vpc: ec2.Vpc;
@@ -70,7 +70,7 @@ export class TicTacToeDatabaseStack extends cdk.Stack {
 
     // Create DocumentDB parameter group
     const documentDbParameterGroup = new docdb.CfnDBClusterParameterGroup(this, 'DocumentDbParameterGroup', {
-      family: Settings.database.documentDb.parameterGroupFamily,
+      family: specifications.database.documentDb.parameterGroupFamily,
       description: 'Parameter group for DocumentDB cluster',
       name: `${config.projectName.toLowerCase()}-${config.environment}-docdb-params`,
       parameters: {
@@ -97,13 +97,13 @@ export class TicTacToeDatabaseStack extends cdk.Stack {
       },
       securityGroup: documentDbSecurityGroup,
       dbClusterName: `${config.projectName.toLowerCase()}-${config.environment}-docdb`,
-      port: Settings.database.documentDb.port,
+      port: specifications.database.documentDb.port,
       removalPolicy: isProductionEnvironment(config.environment) ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       backup: {
         retention: getBackupRetention(config.environment),
-        preferredWindow: Settings.database.documentDb.backupWindow,
+        preferredWindow: specifications.database.documentDb.backupWindow,
       },
-      preferredMaintenanceWindow: Settings.database.documentDb.maintenanceWindow,
+      preferredMaintenanceWindow: specifications.database.documentDb.maintenanceWindow,
       parameterGroup: docdb.ClusterParameterGroup.fromParameterGroupName(
         this,
         'ImportedDocDbParamGroup',
@@ -126,10 +126,10 @@ export class TicTacToeDatabaseStack extends cdk.Stack {
 
     // Create parameter group for Redis
     const redisParameterGroup = new elasticache.CfnParameterGroup(this, 'RedisParameterGroup', {
-      cacheParameterGroupFamily: Settings.database.redis.parameterGroupFamily,
+      cacheParameterGroupFamily: specifications.database.redis.parameterGroupFamily,
       description: 'Parameter group for Redis',
       properties: {
-        'maxmemory-policy': Settings.database.redis.maxMemoryPolicy,
+        'maxmemory-policy': specifications.database.redis.maxMemoryPolicy,
       },
     });
 
@@ -143,13 +143,13 @@ export class TicTacToeDatabaseStack extends cdk.Stack {
       vpcSecurityGroupIds: [redisSecurityGroup.securityGroupId],
       cacheSubnetGroupName: redisSubnetGroup.cacheSubnetGroupName,
       cacheParameterGroupName: redisParameterGroup.ref,
-      engineVersion: Settings.database.redis.engineVersion,
-      port: Settings.database.redis.port,
-      preferredMaintenanceWindow: Settings.database.redis.maintenanceWindow,
+      engineVersion: specifications.database.redis.engineVersion,
+      port: specifications.database.redis.port,
+      preferredMaintenanceWindow: specifications.database.redis.maintenanceWindow,
       snapshotRetentionLimit: isProductionEnvironment(config.environment) 
-        ? Settings.database.redis.snapshotRetention.prod 
-        : Settings.database.redis.snapshotRetention.default,
-      snapshotWindow: Settings.database.redis.snapshotWindow,
+        ? specifications.database.redis.snapshotRetention.prod 
+        : specifications.database.redis.snapshotRetention.default,
+      snapshotWindow: specifications.database.redis.snapshotWindow,
       autoMinorVersionUpgrade: true,
     });
 

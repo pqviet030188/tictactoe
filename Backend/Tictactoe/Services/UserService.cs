@@ -4,7 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Tictactoe.DTOs;
 using Tictactoe.Models;
 using Tictactoe.Types.Interfaces;
-using Tictactoe.Types.Options;
+using Tictactoe.Configurations.Options;
 
 namespace Tictactoe.Services;
 

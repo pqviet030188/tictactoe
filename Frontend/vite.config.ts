@@ -10,6 +10,10 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true, 
+  },
   server: {
     watch: {
       usePolling: true,

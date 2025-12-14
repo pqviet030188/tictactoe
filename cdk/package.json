@@ -13,11 +13,13 @@
     "deploy": "node node_modules/aws-cdk/bin/cdk deploy --all",
     "deploy:network": "node node_modules/aws-cdk/bin/cdk deploy TicTacToe-dev-Network",
     "deploy:database": "node node_modules/aws-cdk/bin/cdk deploy TicTacToe-dev-Database",
-    "deploy:backend": "node node_modules/aws-cdk/bin/cdk deploy TicTacToe-dev-Backend",
+    "deploy:backend": "node node_modules/aws-cdk/bin/cdk deploy TicTacToe-dev-Backend --require-approval never",
     "deploy:frontend": "node node_modules/aws-cdk/bin/cdk deploy TicTacToe-dev-Frontend",
+    "deploy:ecr": "node node_modules/aws-cdk/bin/cdk deploy TicTacToe-dev-ECR --require-approval never",
+    "force:service": "aws ecs update-service --cluster TicTacToe-dev-cluster --service TicTacToe-dev-backend-service --force-new-deployment",
     "bootstrap": "node node_modules/aws-cdk/bin/cdk bootstrap",
     "list": "node node_modules/aws-cdk/bin/cdk list",
-    "destroy": "node node_modules/aws-cdk/bin/cdk destroy --all"
+    "destroy": "node node_modules/aws-cdk/bin/cdk destroy TicTacToe-dev-Backend"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

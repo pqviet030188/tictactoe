@@ -1,4 +1,4 @@
-namespace Tictactoe.Types.Options;
+namespace Tictactoe.Configurations.Options;
 
 public class JwtOptions
 {

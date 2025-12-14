@@ -3,12 +3,14 @@
  */
 
 import * as cdk from 'aws-cdk-lib';
+import 'dotenv/config';
 
-export const Settings = {
+export const specifications = {
 
   storefront:{
-    url: process.env.FRONTEND_URL as string
+    url: process.env.Frontend__Url as string
   },
+
   // Default values for configuration
   defaults: {
     /** AWS region where resources will be deployed */
@@ -34,6 +36,8 @@ export const Settings = {
       https: 443,
       /** Backend API server port */
       backend: 5000,
+      /** Frontend API server port */
+      frontend: 8080,
       /** DocumentDB (MongoDB) port */
       mongodb: 27017,
       /** Redis cache port */
@@ -50,6 +54,7 @@ export const Settings = {
       connectionString: process.env.REDIS_CONNECTION_STRING as string
     }
   },
+
   database: {
     documentDb: {
       instanceTypes: {
@@ -187,6 +192,9 @@ export const Settings = {
     },
   },
 
+  ecsFrontend: {
+    port: 8080
+  },
   // Frontend CloudFront configuration
   frontend: {
     caching: {
@@ -252,8 +260,8 @@ export type Environment = 'dev' | 'staging' | 'prod';
  * @returns DocumentDB instance type string (e.g., 'db.t3.medium')
  */
 export const getDocumentDbInstanceType = (env: string): string => {
-  return Settings.database.documentDb.instanceTypes[env as Environment] 
-    || Settings.database.documentDb.defaultInstanceType;
+  return specifications.database.documentDb.instanceTypes[env as Environment] 
+    || specifications.database.documentDb.defaultInstanceType;
 };
 
 /**
@@ -262,8 +270,8 @@ export const getDocumentDbInstanceType = (env: string): string => {
  * @returns Redis node type string (e.g., 'cache.t3.micro')
  */
 export const getRedisNodeType = (env: string): string => {
-  return Settings.database.redis.nodeTypes[env as Environment] 
-    || Settings.database.redis.defaultNodeType;
+  return specifications.database.redis.nodeTypes[env as Environment] 
+    || specifications.database.redis.defaultNodeType;
 };
 
 /**
@@ -273,8 +281,8 @@ export const getRedisNodeType = (env: string): string => {
  */
 export const getBackupRetention = (env: string): cdk.Duration => {
   return env === 'prod' 
-    ? Settings.database.documentDb.backupRetention.prod 
-    : Settings.database.documentDb.backupRetention.default;
+    ? specifications.database.documentDb.backupRetention.prod 
+    : specifications.database.documentDb.backupRetention.default;
 };
 
 /**
@@ -284,8 +292,8 @@ export const getBackupRetention = (env: string): cdk.Duration => {
  */
 export const getLogRetention = (env: string): cdk.aws_logs.RetentionDays => {
   return env === 'prod'
-    ? Settings.backend.logging.retention.prod
-    : Settings.backend.logging.retention.default;
+    ? specifications.backend.logging.retention.prod
+    : specifications.backend.logging.retention.default;
 };
 
 /**
