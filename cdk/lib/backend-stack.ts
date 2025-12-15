@@ -63,19 +63,10 @@ export class TicTacToeBackendStack extends cdk.Stack {
     );
 
     // ECR repository is passed in from ECR stack
-
-    // ============================================
-    // ECS Cluster
-    // ============================================
-
     this.ecsCluster = new ecs.Cluster(this, "EcsCluster", {
       clusterName: `${prefix}-cluster`,
       vpc,
     });
-
-    // ============================================
-    // Application Load Balancer
-    // ============================================
 
     const alb = new elbv2.ApplicationLoadBalancer(
       this,
@@ -93,10 +84,6 @@ export class TicTacToeBackendStack extends cdk.Stack {
 
     this.loadBalancerUrl = `http://${alb.loadBalancerDnsName}`;
 
-    // ============================================
-    // JWT Secret
-    // ============================================
-
     const jwtSecret = new secretsmanager.Secret(this, "JwtSecret", {
       secretName: `${prefix}-jwt-secret`,
       description: "JWT signing key for authentication",
@@ -106,10 +93,6 @@ export class TicTacToeBackendStack extends cdk.Stack {
         passwordLength: specifications.jwt.secretLength,
       },
     });
-
-    // ============================================
-    // ECS Task Definition
-    // ============================================
 
     const taskDefinition = new ecs.FargateTaskDefinition(
       this,
@@ -180,10 +163,6 @@ export class TicTacToeBackendStack extends cdk.Stack {
     // documentDbSecret.grantRead(taskDefinition.taskRole);
     jwtSecret.grantRead(taskDefinition.taskRole);
 
-    // ============================================
-    // ECS Fargate Service
-    // ============================================
-
     const service = new ecs.FargateService(this, "FargateService", {
       cluster: this.ecsCluster,
       taskDefinition,
@@ -228,10 +207,6 @@ export class TicTacToeBackendStack extends cdk.Stack {
       });
     }
 
-    // ============================================
-    // Load Balancer Target Group
-    // ============================================
-
     const backendTargetGroup = new elbv2.ApplicationTargetGroup(
       this,
       "BackendTargetGroup",
@@ -262,9 +237,6 @@ export class TicTacToeBackendStack extends cdk.Stack {
       })
       .attachToApplicationTargetGroup(backendTargetGroup);
 
-    // ============================================
-    // Frontend Target Group (for static site or ECS frontend)
-    // ============================================
     const frontendTargetGroup = new elbv2.ApplicationTargetGroup(
       this,
       "FrontendTargetGroup",
@@ -298,13 +270,6 @@ export class TicTacToeBackendStack extends cdk.Stack {
     // TODO: Attach your frontend ECS service to frontendTargetGroup here if using ECS for frontend
     // frontendService.attachToApplicationTargetGroup(frontendTargetGroup);
 
-    // ============================================
-    // Load Balancer Listener
-    // ============================================
-
-    // ============================================
-    // Load Balancer Listener with Path-based Routing
-    // ============================================
     const listener = alb.addListener("HttpListener", {
       port: specifications.network.ports.http,
       protocol: elbv2.ApplicationProtocol.HTTP,
@@ -429,10 +394,6 @@ export class TicTacToeBackendStack extends cdk.Stack {
       }),
     });
     */
-
-    // ============================================
-    // Outputs
-    // ============================================
 
     new cdk.CfnOutput(this, "LoadBalancerDnsName", {
       value: alb.loadBalancerDnsName,

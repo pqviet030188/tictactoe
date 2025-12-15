@@ -28,10 +28,6 @@ export class TicTacToeFrontendStack extends cdk.Stack {
     const { config } = props;
     const prefix = getResourcePrefix(config.projectName, config.environment);
 
-    // ============================================
-    // S3 Bucket for Frontend Static Content
-    // ============================================
-
     const websiteBucket = new s3.Bucket(this, 'WebsiteBucket', {
       bucketName: `${config.projectName.toLowerCase()}-${config.environment}-frontend`,
       removalPolicy: isProductionEnvironment(config.environment) ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
@@ -47,10 +43,6 @@ export class TicTacToeFrontendStack extends cdk.Stack {
     });
 
     this.bucketName = websiteBucket.bucketName;
-
-    // ============================================
-    // CloudFront Distribution
-    // ============================================
 
     // Cache policy for static assets
     const staticAssetsCachePolicy = new cloudfront.CachePolicy(this, 'StaticAssetsCachePolicy', {
@@ -143,14 +135,6 @@ export class TicTacToeFrontendStack extends cdk.Stack {
 
     this.distributionUrl = `https://${this.distribution.distributionDomainName}`;
 
-    // ============================================
-    // Deploy Frontend Assets
-    // ============================================
-
-    // Note: Deployment will be handled by CI/CD pipeline
-    // This is a placeholder to show how deployment works
-    // Uncomment if you want CDK to deploy frontend build artifacts
-
     /*
     new s3deploy.BucketDeployment(this, 'DeployWebsite', {
       sources: [s3deploy.Source.asset('../Frontend/dist')],
@@ -159,10 +143,6 @@ export class TicTacToeFrontendStack extends cdk.Stack {
       distributionPaths: ['/*'],
     });
     */
-
-    // ============================================
-    // Outputs
-    // ============================================
 
     new cdk.CfnOutput(this, 'WebsiteBucketName', {
       value: websiteBucket.bucketName,

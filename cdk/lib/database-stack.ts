@@ -44,10 +44,6 @@ export class TicTacToeDatabaseStack extends cdk.Stack {
       cdk.Fn.importValue(`${prefix}-redis-sg-id`)
     );
 
-    // ============================================
-    // DocumentDB (MongoDB-compatible)
-    // ============================================
-
     // Create DocumentDB master credentials secret
     this.documentDbSecret = new secretsmanager.Secret(this, 'DocumentDbSecret', {
       secretName: `${prefix}-docdb-credentials`,
@@ -113,10 +109,6 @@ export class TicTacToeDatabaseStack extends cdk.Stack {
 
     this.documentDbEndpoint = this.documentDbCluster.clusterEndpoint.socketAddress;
 
-    // ============================================
-    // ElastiCache Redis
-    // ============================================
-
     // Create subnet group for Redis
     const redisSubnetGroup = new elasticache.CfnSubnetGroup(this, 'RedisSubnetGroup', {
       cacheSubnetGroupName: `${config.projectName.toLowerCase()}-${config.environment}-redis-subnet`,
@@ -154,10 +146,6 @@ export class TicTacToeDatabaseStack extends cdk.Stack {
     });
 
     this.redisEndpoint = this.redisCluster.attrRedisEndpointAddress;
-
-    // ============================================
-    // Outputs
-    // ============================================
 
     new cdk.CfnOutput(this, 'DocumentDbClusterEndpoint', {
       value: this.documentDbEndpoint,

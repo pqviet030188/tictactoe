@@ -19,10 +19,6 @@ export class TicTacToeEcrStack extends cdk.Stack {
     const { config } = props;
     const prefix = getResourcePrefix(config.projectName, config.environment);
 
-    // ============================================
-    // ECR Repository for Backend Docker Images
-    // ============================================
-
     this.ecrRepository = new ecr.Repository(this, 'BackendRepository', {
       repositoryName: `${config.projectName.toLowerCase()}-${config.environment}-backend`,
       removalPolicy: isProductionEnvironment(config.environment) 
@@ -41,10 +37,6 @@ export class TicTacToeEcrStack extends cdk.Stack {
         },
       ],
     });
-
-    // ============================================
-    // Outputs
-    // ============================================
 
     new cdk.CfnOutput(this, 'RepositoryUri', {
       value: this.ecrRepository.repositoryUri,
