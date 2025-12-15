@@ -354,6 +354,12 @@ npm test
 ### Backend (`Backend/Tictactoe/appsettings.json`)
 ```json
 {
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
   "Jwt": {
     "Key": "your-secret-key-minimum-32-characters",
     "Issuer": "TictactoeIssuerDev",
@@ -378,6 +384,11 @@ npm test
         "AllowCredentials": true
       }
     ]
+  },
+  "Https": {
+    "Enabled": false,
+    "RedirectToHttps": false,
+    "RequireHttpsMetadata": false
   }
 }
 ```
@@ -407,6 +418,17 @@ environment:
   - ASPNETCORE_URLS=http://+:5000
   - Redis__ConnectionString=redis:6379,user=rex,password=rex112233
   - MongoDb__ConnectionString=mongodb://mongo:27017/Tictactoe
+  - CorsPolicies__Use=Default
+  - CorsPolicies__Policies__0__Name=Default
+  - CorsPolicies__Policies__0__AllowedOrigins__0=http://localhost:5173
+  - CorsPolicies__Policies__0__AllowAnyHeader=true
+  - CorsPolicies__Policies__0__AllowAnyMethod=true
+  - CorsPolicies__Policies__0__AllowCredentials=true
+  - Jwt__Issuer=TictactoeIssuerDev
+  - Jwt__Audience=TictactoeAudienceDev
+  - Jwt__AccessTokenMinutes=60
+  - Jwt__RefreshTokenDays=7
+  - Jwt__Key=ThisIsADevelopmentKeyForTictactoeApplication12345
 ```
 
 ---
@@ -430,9 +452,6 @@ environment:
 - **GET /auth/user** – Get current authenticated user info
   - Requires: Valid JWT in cookie or Authorization header
   - Returns: `{ "id": "...", "email": "..." }`
-  
-- **POST /auth/logout** – Clear authentication cookies
-  - Returns: `{ "message": "Logged out successfully" }`
 
 ### SignalR Hubs
 
