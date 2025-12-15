@@ -81,17 +81,6 @@ public static class Configurations
                 settings.MaxConnectionPoolSize = 200;
                 settings.MinConnectionPoolSize = 5;
                 settings.WaitQueueTimeout = TimeSpan.FromSeconds(60);
-
-                // SSL/TLS Configuration for .NET 8.0 compatibility with MongoDB Atlas
-                settings.SslSettings = new SslSettings
-                {
-                    EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13,
-                    CheckCertificateRevocation = false
-                };
-
-                // Server API version for compatibility
-                settings.ServerApi = new ServerApi(ServerApiVersion.V1);
-                
                 return new MongoClient(settings);
             });
 
