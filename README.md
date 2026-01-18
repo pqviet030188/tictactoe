@@ -3,7 +3,8 @@
 A full-stack real-time multiplayer TicTacToe game with authentication, live updates via SignalR, and both single-player (vs CPU) and multiplayer modes.
 
 Built with **React + TypeScript (Vite)** on the frontend and **.NET 8 + SignalR** on the backend, backed by **MongoDB** and **Redis**.
-The app is deployed on AWS using ECS and API Gateway. Please access the app from this ![link](http://tictactoe-dev-alb-2055555245.ap-southeast-2.elb.amazonaws.com/game)
+
+The app is deployed on AWS using ECS and API Gateway. Please access the app from this [link]([https://github.com/pqviet030188](http://tictactoe-dev-alb-2055555245.ap-southeast-2.elb.amazonaws.com/game))
 
 ---
 
