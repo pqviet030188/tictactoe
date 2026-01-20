@@ -224,6 +224,7 @@ flowchart TD
   ALB -. hosts .-> Fargate
   Fargate -. runs .-> Nginx
   Fargate -. runs .-> DotNet
+```
 
 ---
 
