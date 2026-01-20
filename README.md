@@ -196,6 +196,7 @@ Frontend runs at `http://localhost:5173`
 This backend is deployed on AWS using ECS Fargate, with an Application Load Balancer (ALB) as the public entry point. 
 The ALB routes user requests to the corresponding service running in Fargate containers, which are placed in private subnets for security.
 
+
 ```mermaid
 flowchart TD
   User[User Browser]
@@ -206,7 +207,7 @@ flowchart TD
     end
     subgraph PrivateSubnet
       Fargate[Fargate Service]
-      Nginx[Nginx - Static Resources]
+      Nginx[Nginx (Static Resources)]
       DotNet[DotNet Backend API]
     end
   end
