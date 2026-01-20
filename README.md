@@ -47,6 +47,42 @@ The app is deployed on AWS using ECS and API Gateway. Please access the app from
 
 ---
 
+## 🌐 Architecture Overview
+This backend is deployed on AWS using ECS Fargate, with an Application Load Balancer (ALB) as the public entry point. 
+
+The ALB routes user requests to the corresponding service running in Fargate containers, which are placed in private subnets for security.
+
+```mermaid
+flowchart TD
+  User[User Browser]
+  subgraph VPC
+    direction TB
+    subgraph PublicSubnet
+      ALB[Application Load Balancer]
+    end
+    subgraph PrivateSubnet
+      Fargate[Fargate Service]
+      Nginx[Nginx for Static Resources]
+      DotNet[DotNet Backend API]
+    end
+  end
+
+  User -- HTTP/HTTPS --> ALB
+  ALB -- "Path /*" --> Nginx
+  ALB -- "Path /api/*" --> DotNet
+  Fargate -- "Port 8080" --> Nginx
+  Fargate -- "Port 5000" --> DotNet
+  Nginx -- "Serves static files" --> User
+  DotNet -- "Handles API" --> User
+
+  %% Placement
+  ALB -. hosts .-> Fargate
+  Fargate -. runs .-> Nginx
+  Fargate -. runs .-> DotNet
+```
+
+---
+
 ## 🛠️ Tech Stack
 
 ### Frontend
@@ -189,43 +225,6 @@ npm install
 npm run dev
 ```
 Frontend runs at `http://localhost:5173`
-
----
-
-## 🌐 Architecture Overview
-This backend is deployed on AWS using ECS Fargate, with an Application Load Balancer (ALB) as the public entry point. 
-
-The ALB routes user requests to the corresponding service running in Fargate containers, which are placed in private subnets for security.
-
-
-```mermaid
-flowchart TD
-  User[User Browser]
-  subgraph VPC
-    direction TB
-    subgraph PublicSubnet
-      ALB[Application Load Balancer]
-    end
-    subgraph PrivateSubnet
-      Fargate[Fargate Service]
-      Nginx[Nginx for Static Resources]
-      DotNet[DotNet Backend API]
-    end
-  end
-
-  User -- HTTP/HTTPS --> ALB
-  ALB -- "Path /*" --> Nginx
-  ALB -- "Path /api/*" --> DotNet
-  Fargate -- "Port 8080" --> Nginx
-  Fargate -- "Port 5000" --> DotNet
-  Nginx -- "Serves static files" --> User
-  DotNet -- "Handles API" --> User
-
-  %% Placement
-  ALB -. hosts .-> Fargate
-  Fargate -. runs .-> Nginx
-  Fargate -. runs .-> DotNet
-```
 
 ---
 
