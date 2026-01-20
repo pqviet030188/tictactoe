@@ -194,6 +194,7 @@ Frontend runs at `http://localhost:5173`
 
 ## 🌐 Architecture Overview
 This backend is deployed on AWS using ECS Fargate, with an Application Load Balancer (ALB) as the public entry point. 
+
 The ALB routes user requests to the corresponding service running in Fargate containers, which are placed in private subnets for security.
 
 
