@@ -207,7 +207,7 @@ flowchart TD
     end
     subgraph PrivateSubnet
       Fargate[Fargate Service]
-      Nginx[Nginx (Static Resources)]
+      Nginx[Nginx for Static Resources]
       DotNet[DotNet Backend API]
     end
   end
